@@ -215,3 +215,177 @@ The pipeline joined the integrated product records with the ingredient audit by 
 **Official technical references:** Open Food Facts data access: https://world.openfoodfacts.org/data ; USDA FoodData Central downloads: https://fdc.nal.usda.gov/download-datasets/ ; GS1 GTIN zero-padding guidance: https://support.gs1.org/support/solutions/articles/43000734355-what-is-the-required-format-of-gtin-in-gs1-edi-standards- ; GS1 check digits: https://www.help.gs1us.org/check-digit-calculator .
 
 **Evidence basis:** All numeric experimental observations in this document came from the team's command outputs shared in the project conversation through 6 November 2026. Percentages were calculated from those counts; explanations and limitations are interpretations. The raw dataset snapshots and all local source files were not independently rerun in this report-generation environment. This document is a **comprehensive progress and observations report**, not a claim of completed model training, OCR ingestion, streaming analytics, or independent publication-level validation.
+
+## Progress addendum — Steps 24–36 (7 November 2026)
+
+**Update scope:** This addendum starts **after Step 23**. Sections 1–12 above are retained from the 6 November 2026 report, without re-running or rewriting that earlier analysis. Their descriptions of image/PDF processing as “planned” reflect the earlier reporting date; this addendum records what was subsequently completed. **Streaming, controlled scaling benchmarks and independent legal interpretation have not yet been completed.**
+
+### 13. Step 24: Open Food Facts image and metadata collection pilot
+
+The team selected **8 distinct products** from `data/india_candidates.parquet/` and requested product image metadata from the Open Food Facts API. Three possible image types were checked per barcode: front-of-pack, ingredients and nutrition. The pipeline created **24 JSONL metadata records**, recorded image URL, type, download status, source and retrieval time, and intentionally capped actual downloads at **3 images**.
+
+| Image category | Checked | Available online | Downloaded in pilot |
+|---|---:|---:|---:|
+| Front | 8 | 8 | 2 |
+| Ingredients | 8 | 6 | 0 |
+| Nutrition | 8 | 7 | 1 |
+| **Total** | **24** | **21** | **3** |
+
+Availability/status totals: **18** `available_not_downloaded`, **3** `downloaded`, and **3** `not_available`. No ingredient photographs were downloaded during this deliberately capped initial pilot; this did not mean that ingredient photographs were unavailable. The **21/24 availability** figure (87.5%) applies only to this eight-product selection.
+
+**Program / evidence:** `src/bda/collect_food_images.py` → `data/images/image_metadata.jsonl` and `data/images/`.
+
+### 14. Step 25: Spark integration of image metadata with India products
+
+Spark read the semi-structured image JSONL inventory, linked rows to Indian product records from Parquet by barcode, and saved an integrated inventory. It verified **24 metadata records**, **8 distinct products**, and **24/24 rows linked** to Indian products with NOVA labels. The grouped results reproduced the Step 24 availability table, with downloaded status totals 3/18/3. The successful join establishes **record linkage**, not photographic or label-text accuracy.
+
+**Program / evidence:** `src/bda/analyze_image_metadata.py` → `data/images/image_inventory.parquet/`.
+
+### 15. Step 26: Ingredient-image download pilot
+
+Using the six existing ingredient-image URLs rather than repeating API lookups, the team downloaded **6/6 ingredient photographs**, with **0 download failures**. The original download logs retained barcode, image URL, local path, byte size, status and retrieval time.
+
+**Barcodes:** `8908014814014`, `8903363004604`, `8902979052405`, `8906117091509`, `8903553002809`, `3948764032707`.
+
+**Program / evidence:** `src/bda/download_ingredient_images.py` → `data/images/ingredients/` and `data/images/ingredient_downloads.jsonl`.
+
+### 16. Steps 27–29: Initial OCR, enhancement and Spark quality audit
+
+**Initial Tesseract OCR (Step 27):** All six photographs produced a nonempty text result without a reported command failure: **6 technical successes, 0 empty outputs, 0 failed OCR calls**. The program counted **154 whitespace-separated words** in total and **0.547 seconds** of measured OCR processing. These are execution counts and runtime measurements, **not accuracy scores**. The user visually judged **2 of 6 photographs** to be readable: `8902979052405` and `8903553002809`.
+
+**Enhancement experiment (Step 28):** Images were enlarged when small, converted to grayscale, contrast-adjusted and sharpened. The 6 enhanced images were each processed with **PSM 6 and PSM 11**, producing **12 enhanced OCR attempts**. Word-count totals increased to **552** (PSM 6) and **587** (PSM 11), versus the initial 154. Measured OCR-only times were **1.284 seconds** and **1.430 seconds**, respectively, versus 0.547 seconds initially; the enhanced figures **exclude image-preprocessing time** and come from separate runs. In low-quality images, output often became longer but visibly more garbled.
+
+| Barcode | Initial PSM 6 words | Enhanced PSM 6 words | Enhanced PSM 11 words | Readable by eye |
+|---|---:|---:|---:|---|
+| `8908014814014` | 1 | 181 | 185 | No |
+| `8903363004604` | 4 | 68 | 88 | No |
+| `8902979052405` | 43 | 38 | 31 | Yes |
+| `8906117091509` | 16 | 123 | 106 | No |
+| `8903553002809` | 88 | 94 | 97 | Yes |
+| `3948764032707` | 2 | 48 | 80 | No |
+| **Total** | **154** | **552** | **587** | **2/6 readable** |
+
+**Spark quality audit (Step 29):** The original and enhanced JSONL results were joined with Indian product Parquet; the audit contained **6 records**, one per barcode, and all **6/6** linked to Open Food Facts **NOVA group 4**. A preview-based note marked `8902979052405` as having a recognizable ingredient list; it was not a full accuracy certification. The all-NOVA-4 pilot is a sampling limitation, not a population estimate.
+
+**Observed OCR issues:** `8902979052405` included recognizable milk, stabilizer and cashew-list language; `8903553002809` generated significant readable/promotional packaging text about foods such as pizza and burgers rather than a clean ingredient-only block. Low-quality source images often yielded text with little apparent meaning. An OCR status of `success` or `text_detected` means nonempty text, not correct ingredients.
+
+**Programs / evidence:** `src/bda/run_ocr_pilot.py` → `data/ocr/ocr_results.jsonl`; `src/bda/improve_ocr.py` → `data/ocr/improved/ocr_comparison.jsonl`; `src/bda/analyze_ocr_quality.py` → `data/ocr/ocr_quality_audit.parquet/`.
+
+### 17. Steps 30–31: Manually referenced Word Error Rate (WER)
+
+A human transcribed visible packaging text for **two photographs**. The same case-insensitive word-tokenization rule was applied to each reference and OCR result. The scripts computed word-level edit distance divided by reference length: `WER = (substitutions + deletions + insertions) / reference words`. These measurements concern **whole-image visible text**, not a separately cropped/annotated ingredient-only ground truth. Reference transcripts and source images were local, and the numbers below are team-reported program outputs.
+
+| Product barcode | Human reference words | Original PSM 6 WER | Enhanced PSM 6 WER | Enhanced PSM 11 WER |
+|---|---:|---:|---:|---:|
+| `8902979052405` | 45 | **2.22%** (1 edit) | 40.00% (18 edits) | 57.78% (26 edits) |
+| `8903553002809` | 119 | 58.82% (70 edits) | **48.74%** (58 edits) | 60.50% (72 edits) |
+| **Pooled (164 reference words)** | **164** | **43.29%** (71 edits) | **46.34%** (76 edits) | **59.76%** (98 edits) |
+
+**Interpretation:** The original, unenhanced PSM 6 image was markedly better for the first product. Enhanced PSM 6 performed best for the second. There is **no universal winning configuration** established by these two examples. Pooled WER is derived from summed edits / summed reference words, **not** a simple average of image-specific percentages. Image-dependent segmentation, layout and visibility influence results; a two-image study is insufficient for generalizable OCR-performance claims.
+
+**Programs / evidence:** `src/bda/evaluate_ocr_accuracy.py`, `src/bda/evaluate_ocr_batch.py` → `data/ocr/ocr_accuracy_results.jsonl` and `data/ocr/ocr_accuracy_batch.jsonl`; manually transcribed references in `data/ocr/reference/`.
+
+### 18. Step 32: NOVA-stratified product-image availability audit
+
+To address the initial NOVA-4-only bias, Spark selected **8 products from each NOVA group** (32 total) from the Indian candidate subset. The Open Food Facts API was queried for ingredient-image metadata; **26/32** had an available ingredient image URL (**81.25% of this sample**) and **6** did not. **0 API errors** were reported. Product checking was balanced by NOVA group; **online image availability was not**.
+
+| NOVA group | Products checked | Images available | Missing | API errors |
+|---|---:|---:|---:|---:|
+| 1 | 8 | 6 | 2 | 0 |
+| 2 | 8 | 6 | 2 | 0 |
+| 3 | 8 | 8 | 0 | 0 |
+| 4 | 8 | 6 | 2 | 0 |
+| **Total** | **32** | **26** | **6** | **0** |
+
+**Program / evidence:** `src/bda/select_balanced_images.py` → `data/images/balanced_image_candidates.jsonl`. Availability is a pilot observation; it is not an estimate of image coverage across all Indian food labels.
+
+### 19. Steps 33–34: Balanced higher-resolution downloads and image-quality inventory
+
+The next controlled pilot selected two available ingredient photographs for each group. **8/8 images** downloaded, **2/2 per group**, with **0 failures**. Pixel dimensions and file sizes were captured from the actual downloaded images, then combined with the 32-product availability inventory and source NOVA labels in Spark.
+
+| NOVA | Barcode | Image dimensions (px) | File size (bytes) | Short-side <600px? |
+|---|---|---:|---:|---|
+| 1 | `8904083301394` | 1338 × 3991 | 550,661 | No |
+| 1 | `89080955` | 4160 × 3120 | 918,808 | No |
+| 2 | `8901088000468` | 3060 × 4080 | 1,361,378 | No |
+| 2 | `9556023331597` | 2934 × 1003 | 370,563 | No |
+| 3 | `0760851638226` | 1042 × 1920 | 229,759 | No |
+| 3 | `8906112665354` | 814 × 213 | 32,306 | **Yes** |
+| 4 | `8901063367258` | 3024 × 4032 | 1,057,013 | No |
+| 4 | `8901414006850` | 3456 × 4608 | 1,598,044 | No |
+
+Spark checked **32 inventory rows**, verified **32/32 source NOVA labels matched**, and found exactly **8** rows with successful image downloads. Using the implemented short-side threshold of 600 pixels, **one image** (`8906112665354`, group 3) received a small-image warning. Separately, **7/8** images had a shortest dimension of at least 1,000 pixels. Resolution is not the same as readable text.
+
+A manual CSV review sheet was created and completed for all eight images. The user indicated that approximately all images looked good and later formally recorded **8/8 `readable_by_eye=yes` and 8/8 `has_ingredient_list=yes`**; these are human judgments, not independently validated OCR ground truths.
+
+**Programs / evidence:** `src/bda/download_balanced_images.py` → `data/images/balanced_full/` and `data/images/balanced_download_log.jsonl`; `src/bda/analyze_balanced_images.py` → `data/images/balanced_image_inventory.parquet/` and `data/images/balanced_readability_review.csv`.
+
+### 20. Step 35: Balanced OCR across NOVA groups
+
+All eight reviewed images were processed with Tesseract **PSM 6** and **PSM 11** on a shared input for each image, resized only when the longest side exceeded 3,000 pixels. **16/16 OCR runs** returned nonempty text; **0 empty results or reported execution failures**. Unlike the earlier enhancement test, no aggressive contrast or sharpening was applied. Inputs had been resized/re-encoded for the experiment, so these results should not be described as untouched-original-image OCR.
+
+| NOVA | Images | PSM 6 average words | PSM 6 OCR time (s) | PSM 11 average words | PSM 11 OCR time (s) |
+|---|---:|---:|---:|---:|---:|
+| 1 | 2 | 72.0 | 0.681 | 67.5 | 0.804 |
+| 2 | 2 | 77.5 | 1.443 | 98.5 | 1.367 |
+| 3 | 2 | 85.0 | 0.551 | 80.0 | 0.512 |
+| 4 | 2 | 168.0 | 1.468 | 162.0 | 1.057 |
+| **Total** | **8** | **805 words total** | **4.143** | **816 words total** | **3.740** |
+
+Across eight images, the measured Tesseract OCR-only average was **0.518 seconds/image** for PSM 6 and **0.468 seconds/image** for PSM 11 (rounded). These runs were not a controlled end-to-end benchmark because image preparation, storage I/O and other overheads were not included. The small samples do not establish that one NOVA group is inherently easier/harder to recognize, nor that the lower-time mode is more accurate.
+
+**Qualitative examples:** Barcode `8906112665354` (only 814 × 213 px) nonetheless produced a clear ingredient snippet involving seeds, jaggery and nuts with **21 words** in each mode. Barcode `8901063367258` (3024 × 4032 px) generated largely incoherent OCR text despite being marked readable by eye; it yielded **29** (PSM 6) and **28** (PSM 11) words. Barcode `8901414006850` generated **307** and **296** words, respectively, but no reference transcript has validated how many were correct. Thus word count and resolution alone are unreliable proxies for ingredient extraction quality.
+
+**Manual quality results:** 8 images reviewed; **8 readable**, **8 showing ingredient lists**, and **8 eligible for transcription** according to the member's CSV sheet. **WER has not yet been measured for these eight new photographs.**
+
+**Program / evidence:** `src/bda/run_balanced_ocr.py` → `data/ocr/balanced/ocr_results.jsonl` and `data/ocr/balanced/ocr_audit.parquet/`.
+
+### 21. Step 36: Independent FSSAI PDF reference corpus
+
+Two local reference PDFs were parsed using `pypdf` and turned into a **page-level Apache Spark Parquet dataset**. This adds a **third independent content provider**: the Food Safety and Standards Authority of India (FSSAI). The documents are regulatory references, **not food-product observations**, and were not joined to product barcodes or used to certify product legality.
+
+| Input filename | Pages processed | Pages with text | Extracted word tokens | Characters |
+|---|---:|---:|---:|---:|
+| `labelling_amendment_2026.pdf` | 7 | 7 | 4,278 | 19,297 |
+| `labelling_compendium.pdf` | 39 | 39 | 10,288 | 65,233 |
+| **Total** | **46** | **46** | **14,566** | **84,530** |
+
+The counts reflect the script's regular-expression word tokenizer and extracted text character lengths. **0 pages without text** and **0 caught page-extraction exceptions** were reported. Keyword coverage (pages containing each term, case-insensitive; page counts can overlap): `ingredient` **24**, `allergen` **4**, `nutrition` **12**, `additive` **15**, `label` **36**.
+
+**Important warning:** During the amendment PDF parse, `pypdf` warned that `fontTools` was not installed and is needed to fully interpret the encoding of a CFF Type1 `/MyriadPro-Regular` font. The script completed, but its zero exception count does **not** prove that every character was extracted correctly. A defensible next action is to install `fonttools`, rerun, and manually inspect selected pages for text fidelity, especially the amendment. Some scanned or complex pages may also need OCR-based inspection. The actual issuing authority, version and applicability of the locally named amendment file still require checking against its official source document.
+
+Each output row preserves **document name, PDF SHA-256 hash, page number, text, word/character counts and extraction error field**; the script also stores a source-page URL field. These are useful provenance controls, but keyword hits are **not** evidence of substantive compliance.
+
+**Program / evidence:** `src/bda/process_fssai_documents.py`; source files in `data/reference/fssai/`; output `data/reference/fssai/fssai_pages.parquet/`.
+
+### 22. Consolidated new evidence and interpretation (Steps 24–36)
+
+| Evidence area | Confirmed new result | Main limitation |
+|---|---|---|
+| Images / API | 8-product pilot: 24 image slots, 21 available; 3 initially downloaded | Small source-dependent pilot; availability is not quality |
+| Cross-format image integration | 24/24 JSONL metadata records matched to Indian product Parquet | Record linkage alone says nothing about OCR accuracy |
+| Ingredient-image pilot | 6/6 ingredient images downloaded, no failures | Four of six initially not readable by eye |
+| OCR method comparison | 6 photos × 3 settings; 154 / 552 / 587 detected words | Higher word count can mean more noise |
+| Manually referenced WER | Two references; original PSM6 pooled WER 43.29% | Only 2 photographs, whole-image texts, not an ingredient-only benchmark |
+| NOVA-balanced image discovery | 32 checked (8 per group), 26 available, 0 API errors | Controlled small sample; online availability varies by group |
+| Balanced image download and inventory | 8/8 downloaded; 32/32 NOVA matches; one short-side warning | Eight-image pilot; human assessment is subjective |
+| Balanced OCR | 8 images, 16 nonempty results; PSM6=805 words/4.143s, PSM11=816 words/3.740s | No WER annotations for these eight images yet |
+| FSSAI PDF reference ingestion | 46/46 pages returned text; 14,566 word tokens; keyword coverage measured | Font-encoding warning and no verified legal interpretation |
+
+**Data-variety conclusion:** The BDA pipeline now demonstrates OFF Parquet + API JSON + image files, USDA CSV, image/OCR JSONL, FSSAI PDFs, and derived Spark Parquet. **Format variety and source variety are different:** the independent sources now include OFF, USDA and FSSAI; multiple OFF formats alone do not count as separate providers. The report does **not** claim that the 8–32-image samples by themselves constitute large-scale image processing.
+
+**Verification boundary:** This addendum records command outputs and manual assessments shared by the team through **7 November 2026**. The report author did not access or independently rerun the large datasets, scanned images or the two FSSAI PDFs. All image quality and OCR accuracy findings should retain their small-sample qualifications.
+
+### 23. Incremental reproduction map and next BDA tasks
+
+| Step(s) | Script(s) | Output(s) |
+|---|---|---|
+| 24–25 | `collect_food_images.py`; `analyze_image_metadata.py` | `data/images/image_metadata.jsonl`; `data/images/image_inventory.parquet/` |
+| 26–27 | `download_ingredient_images.py`; `run_ocr_pilot.py` | `data/images/ingredient_downloads.jsonl`; `data/ocr/ocr_results.jsonl` |
+| 28–29 | `improve_ocr.py`; `analyze_ocr_quality.py` | `data/ocr/improved/ocr_comparison.jsonl`; `data/ocr/ocr_quality_audit.parquet/` |
+| 30–31 | `evaluate_ocr_accuracy.py`; `evaluate_ocr_batch.py` | `data/ocr/reference/`; `data/ocr/ocr_accuracy_batch.jsonl` |
+| 32–34 | `select_balanced_images.py`; `download_balanced_images.py`; `analyze_balanced_images.py` | `data/images/balanced_image_candidates.jsonl`; `balanced_download_log.jsonl`; `balanced_image_inventory.parquet/`; `balanced_readability_review.csv` under `data/images/` |
+| 35 | `run_balanced_ocr.py` | `data/ocr/balanced/ocr_results.jsonl`; `data/ocr/balanced/ocr_audit.parquet/` |
+| 36 | `process_fssai_documents.py` | `data/reference/fssai/fssai_pages.parquet/` |
+
+**Next work (not completed):** (1) Install `fonttools`, re-extract and visually compare FSSAI sample pages; (2) add/manual-check ingredient-only transcriptions from the new 8-image balanced set and calculate WER with transparent image crops/regions; (3) document source attribution, URLs, collection dates and licensing for images/PDFs; (4) run controlled Spark batch/format/partition benchmarks with repeat measurements and hardware specs; (5) design privacy-safe, clearly flagged real or simulated scan events for Spark Structured Streaming. All new code belongs on `feature/bda`; large images, PDFs and raw datasets should remain excluded from Git unless explicitly licensed and needed.
