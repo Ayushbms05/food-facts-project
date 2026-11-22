@@ -389,3 +389,121 @@ Each output row preserves **document name, PDF SHA-256 hash, page number, text, 
 | 36 | `process_fssai_documents.py` | `data/reference/fssai/fssai_pages.parquet/` |
 
 **Next work (not completed):** (1) Install `fonttools`, re-extract and visually compare FSSAI sample pages; (2) add/manual-check ingredient-only transcriptions from the new 8-image balanced set and calculate WER with transparent image crops/regions; (3) document source attribution, URLs, collection dates and licensing for images/PDFs; (4) run controlled Spark batch/format/partition benchmarks with repeat measurements and hardware specs; (5) design privacy-safe, clearly flagged real or simulated scan events for Spark Structured Streaming. All new code belongs on `feature/bda`; large images, PDFs and raw datasets should remain excluded from Git unless explicitly licensed and needed.
+
+
+
+## Appendix B — Incremental BDA observations (Steps 37–38; 7 November 2026)
+
+*This addendum starts after Step 36 and leaves the previous observations unchanged. It reports the team's local Spark outputs; these measurements were not independently reproduced by the report author.*
+
+### 24. Step 37: Spark CSV versus Parquet benchmark
+
+**Experimental design.** A common **368,055-row, five-column** flat export of the source-aware dataset was written to (1) headered, **uncompressed CSV** and (2) **Snappy-compressed Parquet**. Fields: `gtin14`, `nova_group`, `agreement_category`, `off_chars`, and `usda_chars`. The characters counts are derived from cleaned ingredient text; the full ingredient strings were **not** stored in this benchmark export. Queries used an explicit CSV schema, performed the same `agreement_category` aggregation, and verified equal aggregated values and the expected total product count. Spark ran on `local[1]` with `2g` driver memory and `4` shuffle partitions. One untimed warm-up per format preceded three timed trials, and trial order was alternated.
+
+| Measurement | CSV | Parquet |
+|---|---:|---:|
+| End-to-end export time, including source read | 2.104 s | 1.309 s |
+| Dataset storage size | 13.62 MiB | 4.78 MiB |
+| Query trial 1 | 0.231 s | 0.111 s |
+| Query trial 2 | 0.219 s | 0.105 s |
+| Query trial 3 | 0.224 s | 0.094 s |
+| Median query time | **0.224 s** | **0.105 s** |
+| Aggregation result agreement | Verified | Verified |
+
+**Calculated comparisons.** Parquet occupied **8.84 MiB less** disk space, a **64.9% reduction** relative to uncompressed CSV (4.78 / 13.62 ≈ 0.351). The CSV-to-Parquet median query-time ratio was **2.13×** (0.224 / 0.105 ≈ 2.133), equivalent to roughly **53.1% lower measured latency** for Parquet in this test. The measured end-to-end export time was **0.795 s shorter** for Parquet (2.104 s versus 1.309 s).
+
+**Interpretation and limitations.** Both formats produced identical query results in this controlled comparison, while the selected Parquet layout was smaller and faster for this aggregation. Results are **not a general performance guarantee**: the CSV was uncompressed while Parquet used Snappy; the data were only five columns and about 368k rows; local OS caching, JVM/JIT warm-up and other processes can affect sub-second measurements; and each write time includes reading the original curated dataset rather than pure storage-format encoding. Comparisons use rounded display measurements.
+
+**Program/evidence:** `src/bda/benchmark_spark_formats.py`; output JSON `data/benchmarks/step37_results.json`; exports `data/benchmarks/products_csv/` and `data/benchmarks/products_parquet/`.
+
+### 25. Step 38: Spark Parquet partition-count benchmark
+
+**Experimental design.** The same **368,055 unique matched products** were exported into four Snappy Parquet layouts containing `gtin14`, `nova_group`, `agreement_category`, **full** `off_clean` and `usda_clean` ingredient text. Layouts were created via `repartition(n, "gtin14")` for n = **1, 2, 4 and 8**, with one Parquet data file per partition. Spark used `local[2]`, `2g` driver memory, `4` shuffle partitions and **adaptive query execution disabled**. The query grouped by agreement category and aggregated record count and cleaned ingredient character counts. All layouts produced equal grouped results and **368,055** total records. One query warm-up per layout preceded three timed query runs with alternating order.
+
+| Partitions / Parquet files | Reported size (MiB) | End-to-end write (s) | Query trial 1 (s) | Trial 2 (s) | Trial 3 (s) | Median query (s) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 / 1 | 52.40 | 1.572 | 0.685 | 0.669 | 0.684 | **0.684** |
+| 2 / 2 | 55.90 | 0.655 | 0.385 | 0.378 | 0.378 | **0.378** |
+| 4 / 4 | 55.90 | 0.681 | 0.384 | 0.380 | 0.380 | **0.380** |
+| 8 / 8 | 55.91 | 0.732 | 0.464 | 0.464 | 0.462 | **0.464** |
+
+The initial export lines printed **55.89 MiB** for two partitions and **55.92 MiB** for eight partitions; the later final benchmark printed **55.90** and **55.91 MiB**, respectively. This is a small display/reporting discrepancy in the shared logs, so the table uses the *final summary* numbers and does not claim finer file-size precision.
+
+**Calculated comparisons.** The **two-partition layout had the lowest recorded median query time, 0.378 s**, close to four partitions at 0.380 s. Relative to the single-file layout at 0.684 s, this is approximately **1.81× speedup** (44.7% lower latency). Two partitions also had the shortest recorded end-to-end write time (**0.655 s**), versus 1.572 s for one partition; the first write may include additional warm-up effects because write order was not randomized. Eight partitions were slower than two or four under `local[2]`, consistent with added small-file/task overhead, but this is an interpretation, not a measured causal decomposition.
+
+The **one-partition layout was smallest** at **52.40 MiB**, compared with about **55.90 MiB** for the other layouts—approximately **6.3% smaller** than the two-partition layout. The observed storage trade-off may reflect Parquet encoding/compression differences with file layout and metadata overhead; the precise cause was not separately isolated.
+
+**Interpretation and limitations.** For this local two-task Spark configuration, **2–4 partitions produced nearly identical fast median queries**, and eight partitions did not improve speed. The 0.002 s gap between two and four partitions is too small to treat as a robust distinction from only three trials. These results do not define an optimal partition count for a distributed cluster or another dataset. Times include Spark read/query overhead and local caching effects. This benchmark uses full ingredient strings and a different column set from Step 37; the **52–56 MiB** sizes here must **not** be compared as like-for-like storage measurements against Step 37’s **4.78 MiB** Parquet export.
+
+**Program/evidence:** `src/bda/benchmark_spark_partitions.py`; output `data/benchmarks/step38/partition_results.json`; partition datasets `data/benchmarks/step38/products_p1/`, `products_p2/`, `products_p4/`, and `products_p8/`.
+
+### 26. Combined interpretation and next work
+
+- **Correctness first:** Both Step 37 CSV and Parquet queries agreed; all four Step 38 partition layouts yielded the same 368,055 records and equivalent grouped results.
+- **Storage/query trade-offs:** Columnar, compressed Parquet was advantageous for the specific five-column Step 37 benchmark. Partitioning the larger text-containing Parquet data improved median query times up to the two- and four-file layouts, while the single file had the smallest footprint.
+- **Scientific qualification:** Results are local (`local[1]` or `local[2]`), short-run measurements on one Mac. No production cluster, cold-cache tests, extensive confidence intervals, alternative compression settings or more extensive query workloads were evaluated.
+- **Reproducibility:** Both benchmark scripts, Spark settings, raw trial values, file paths, outputs and limitations are documented; benchmark output JSON and large generated datasets live under git-ignored `data/`.
+- **Next planned work, not completed:** Build a privacy-preserving, **clearly simulated** JSON scan-event stream using Spark Structured Streaming, with input schemas, event-time processing, microbatch counts, join coverage and throughput observations. Later run scale/robustness checks on more realistic loads and document hardware resources.
+
+
+# Appendix C — Incremental BDA Observations (Steps 39–42)
+
+*Appended after Step 38. Results are based on the team's local Spark command outputs and saved artifacts; they have not been independently rerun in this report.*
+
+## 27. Step 39 — Initial file-based Structured Streaming pilot
+
+We generated **300 explicitly simulated** food-scan events in **three input JSON files of 100 events each**. Spark Structured Streaming read the files in micro-batches, joined barcodes with the curated product dataset, and saved enriched records to `data/streaming/step39/enriched_events.parquet/` with a checkpoint at `data/streaming/step39/checkpoint/`. All 300 event IDs were unique, no invalid timestamps were reported, and the three reported per-batch processing rates were **118.90, 238.70, and 274.00 rows/s**.
+
+The initial summary recorded **260 `product_found` and 40 `unknown`** and a NOVA-event distribution of **NOVA 1: 45; NOVA 2: 18; NOVA 3: 68; NOVA 4: 129; missing NOVA: 40**. These *initial lookup labels were not reliable*: the script inferred `product_found` from a non-null NOVA label rather than checking barcode existence. In addition, 30 deliberately “unknown” events used a sentinel barcode that was already present in the curated dataset. The counts are retained as the original experiment output, not as verified barcode lookup accuracy.
+
+## 28. Step 40 — Root-cause audit and correction
+
+A second Spark join checked **barcode existence independently of NOVA-label availability**. The first audit exposed a null-Boolean handling problem; the corrected audit used a null-safe NOVA check. Its disjoint lookup categories were:
+
+| Corrected audit category | Events |
+|---|---:|
+| Found with NOVA (excluding sentinel category) | 230 |
+| Found without NOVA | 40 |
+| Sentinel barcode collision | 30 |
+| **Total** | **300** |
+
+**All 300 simulated event barcodes matched an existing curated record**, so the original claim that 40 events had unknown barcodes was incorrect. There were **40 events on existing records with missing NOVA labels**, while the 30 sentinel events matched existing records unexpectedly. The corrected audit reported **300 unique event IDs**, **0 barcodes absent**, and **30 intentionally designated unknown events** that failed their intended absence check. The corrected result is saved at `data/streaming/step39/lookup_audit_corrected.parquet/`.
+
+**Engineering lesson:** an absent NOVA classification is not an absent product; simulated missing-barcode fixtures must be checked against the reference dataset before a test begins.
+
+## 29. Step 41 — Validated streaming simulation
+
+We revised the generator to choose barcodes in three verified categories and to check each enriched event against its expected classification. The simulator used **10 verified-absent GTINs in its unknown sampling pool** and **300 simulated events**. Both input and output were explicitly labelled as synthetic, not real user activity.
+
+| Expected and observed category | Events |
+|---|---:|
+| Existing product with NOVA | 210 |
+| Existing product without NOVA | 60 |
+| Verified unknown barcode | 30 |
+| **Total** | **300** |
+
+The system processed **three micro-batches of 100 events**, reported rates of **416.56, 1,056.69, and 1,097.46 rows/s**, and passed the following checks: **300 total events; 300 unique IDs; 0 classification mismatches; 300 simulated-source labels; 0 invalid timestamps; three micro-batches**. These per-batch rates were collected around the processing function and are not equivalent to the end-to-end streaming query throughput. Outputs are stored under `data/streaming/step41/`, including `enriched_events.parquet/`, `checkpoint/`, and `microbatch_progress.json`.
+
+## 30. Step 42 — Streaming input-file-size benchmark
+
+The same **3,000 simulated events** were processed in two file-based Structured Streaming scenarios. Each scenario had the verified expected composition **2,100 known with NOVA, 600 known without NOVA, and 300 unknown barcodes**; the unknown sampling pool contained **20 verified-absent GTINs**. Both scenarios produced **3,000 unique IDs, 0 classification mismatches**, and the correct category totals.
+
+| Metric | 100 events per file | 500 events per file |
+|---|---:|---:|
+| Input files | 30 | 6 |
+| Observed micro-batches | 30 | 6 |
+| Events processed | 3,000 | 3,000 |
+| Streaming-query wall time | 12.821 s | 2.428 s |
+| Overall throughput | 233.99 rows/s | 1,235.43 rows/s |
+| Median processing-function rate | 1,290.41 rows/s | 6,622.80 rows/s |
+| Classification mismatches | 0 | 0 |
+
+Under this local test configuration, **500 events per file achieved approximately 5.28× the overall throughput** and **81.1% less streaming wall time** than 100 events per file. The observed number of micro-batches equalled the number of input files in these runs; file count does not universally determine Spark micro-batch count. The evidence supports lower repeated file/micro-batch overhead *in this experiment*, not a universal optimum. These results came from **one run per scenario on a local machine**, not a live application or distributed cluster. Measurement, caching, filesystem behavior and initialization can affect the numbers. The experiment saved `data/streaming/step42/step42_results.json` and separate data/checkpoints for each scenario.
+
+## 31. Consolidated interpretation and next-stage integration
+
+The BDA system now demonstrates **volume** (millions of product records), **variety** (independent OFF, USDA and FSSAI sources across Parquet, CSV, API JSON, images, OCR JSONL and PDF), **veracity** (duplicate checks, source conflicts, null-label correction and test-fixture validation), and a **controlled velocity pilot** (file-based Spark Structured Streaming). The streaming experiments do **not** represent real mobile-app traffic.
+
+Next, complete an end-to-end reproducibility review, capture code/environment/dataset provenance, and establish a formal BDA-to-DL handoff. The **368,055-row source-aware overlap** is a cross-source product and data-quality layer, whereas the DL teammate may train on a larger, independently prepared OFF ingredient/NOVA dataset. A later application backend should normalize barcodes, retrieve the best available ingredient text with provenance, call the DL model for prediction, and return separate model-predicted and source-provided NOVA values. Keep training data selection, model validation and prediction confidence under the DL workstream; do not automatically transfer an OFF NOVA label onto a different USDA formulation.
+
+**Programs:** `src/bda/simulate_scan_stream.py`, `src/bda/audit_streaming_lookup.py`, `src/bda/simulate_scan_stream_fixed.py`, and `src/bda/benchmark_streaming_step42.py`.
