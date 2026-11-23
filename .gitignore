@@ -5,3 +5,11 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .DS_Store
+
+# Android Studio local/generated files
+mobile/.gradle/
+mobile/.kotlin/
+mobile/.idea/
+mobile/**/build/
+mobile/local.properties
+mobile/*.iml
