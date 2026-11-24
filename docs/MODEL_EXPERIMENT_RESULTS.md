@@ -207,3 +207,128 @@ However, these results are based on the current balanced English-language datase
 | 4          | Transformer                  | Deep Learning  | Pending   |
 
 _Future experiment results will be added to this document after each model has been trained and evaluated._
+
+# Experiment 3: Bidirectional LSTM
+
+## 1. Experiment Information
+
+- **Category:** Deep Learning (DL)
+- **Model:** Bidirectional Long Short-Term Memory (LSTM)
+- **Framework:** PyTorch
+- **Status:** Completed
+- **Device:** Apple MPS (Apple Silicon GPU)
+- **Purpose:** Learn sequential patterns and contextual relationships in ingredient text by processing the text in both forward and backward directions.
+- **Prediction task:** Predict a food product's NOVA group (1, 2, 3 or 4) using its ingredient text.
+
+## 2. Dataset Information
+
+The experiment used the same prepared English-language dataset and the same training, validation and testing splits as the previous experiments.
+
+| Dataset    | Number of products |
+| ---------- | -----------------: |
+| Training   |              7,018 |
+| Validation |              1,481 |
+| Testing    |              1,501 |
+| **Total**  |         **10,000** |
+
+Vocabulary size: 3,695 words.
+
+Maximum sequence length: 256 tokens.
+
+## 3. Model Configuration
+
+**Text Processing:**
+
+- Converts ingredient text into tokens.
+- Builds a vocabulary using training data.
+- Converts words into numerical token IDs.
+- Uses an embedding layer to represent words as vectors.
+- Embedding dimension: 128.
+- Maximum vocabulary size: 30,000.
+
+**Bidirectional LSTM Architecture:**
+
+- Forward LSTM processes tokens from beginning to end.
+- Backward LSTM processes tokens in reverse order.
+- Hidden size: 128 per direction.
+- Combines the representations from both directions.
+- Dropout rate: 0.4.
+- Fully connected output layer with four classes.
+
+**Training Configuration:**
+
+- Optimizer: AdamW.
+- Learning rate: 0.001.
+- Batch size: 32.
+- Maximum epochs: 12.
+- Early stopping patience: 3.
+- Random seed: 42.
+- Best model selected using validation macro F1-score.
+
+## 4. Overall Performance
+
+| Metric         | Validation |   Test |
+| -------------- | ---------: | -----: |
+| Accuracy       |     87.64% | 89.81% |
+| Macro F1-score |     0.8761 | 0.8977 |
+
+## 5. Test Classification Report
+
+| NOVA Group | Precision | Recall | F1-score | Support |
+| ---------- | --------: | -----: | -------: | ------: |
+| NOVA 1     |      0.89 |   0.93 |     0.91 |     383 |
+| NOVA 2     |      0.94 |   0.89 |     0.91 |     373 |
+| NOVA 3     |      0.83 |   0.84 |     0.84 |     365 |
+| NOVA 4     |      0.94 |   0.92 |     0.93 |     380 |
+
+## 6. Confusion Matrix
+
+Rows represent actual NOVA groups, while columns represent predicted NOVA groups.
+
+| Actual / Predicted | NOVA 1 | NOVA 2 | NOVA 3 | NOVA 4 |
+| ------------------ | -----: | -----: | -----: | -----: |
+| NOVA 1             |    358 |      5 |     16 |      4 |
+| NOVA 2             |     19 |    333 |     20 |      1 |
+| NOVA 3             |     23 |     17 |    307 |     18 |
+| NOVA 4             |      3 |      0 |     27 |    350 |
+
+## 7. Key Observations
+
+1. The model achieved **89.81% test accuracy**.
+2. NOVA 1 and NOVA 2 both achieved an F1-score of 0.91.
+3. NOVA 4 achieved an F1-score of 0.93.
+4. NOVA 3 remained the most challenging class, with an F1-score of 0.84.
+5. The LSTM achieved 1,348 correct predictions out of 1,501 test products.
+6. Training accuracy reached 97.89%, while the best validation accuracy was 87.64%, suggesting some overfitting.
+7. Early stopping selected the checkpoint with the best validation macro F1-score.
+
+## 8. Conclusion
+
+The Bidirectional LSTM achieved the best performance among the three models evaluated so far.
+
+It achieved **89.81% test accuracy** and a **0.8977 macro F1-score**, outperforming both TF-IDF + Logistic Regression and the 1D CNN on the same test split.
+
+The results indicate that sequential processing of ingredient text can be useful for NOVA classification. However, NOVA 3 remains comparatively challenging, and further evaluation on naturally distributed and external product data is required.
+
+---
+
+# 4. Updated Model Performance Comparison
+
+| Model                        | Category       | Test Accuracy | Test Macro F1 |
+| ---------------------------- | -------------- | ------------: | ------------: |
+| TF-IDF + Logistic Regression | Traditional ML |        82.01% |        0.8188 |
+| 1D CNN                       | Deep Learning  |        88.94% |        0.8889 |
+| Bidirectional LSTM           | Deep Learning  |    **89.81%** |    **0.8977** |
+
+---
+
+# Future Experiments
+
+| Experiment | Model                        | Category       | Status    |
+| ---------- | ---------------------------- | -------------- | --------- |
+| 1          | TF-IDF + Logistic Regression | Traditional ML | Completed |
+| 2          | 1D CNN                       | Deep Learning  | Completed |
+| 3          | Bidirectional LSTM           | Deep Learning  | Completed |
+| 4          | Transformer                  | Deep Learning  | Pending   |
+
+_Future experiment results will be added to this document after each model has been trained and evaluated._
