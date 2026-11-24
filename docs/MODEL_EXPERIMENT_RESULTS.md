@@ -80,7 +80,120 @@ The TF-IDF + Logistic Regression model provides our first benchmark for the proj
 
 Although it is a traditional Machine Learning model and not a Deep Learning model, its results will help us evaluate whether more advanced architectures improve prediction performance.
 
-Future CNN, LSTM and Transformer models will be evaluated using the same training, validation and test splits.
+---
+
+# Experiment 2: 1D CNN
+
+## 1. Experiment Information
+
+- **Category:** Deep Learning (DL)
+- **Model:** 1D Convolutional Neural Network (CNN)
+- **Framework:** PyTorch
+- **Status:** Completed
+- **Device:** Apple MPS (Apple Silicon GPU)
+- **Purpose:** Learn patterns and relationships in ingredient text using convolutional layers.
+- **Prediction task:** Predict a food product's NOVA group (1, 2, 3 or 4) using its ingredient text.
+
+## 2. Dataset Information
+
+The experiment used the same prepared English-language dataset and the same training, validation and testing splits as Experiment 1.
+
+| Dataset    | Number of products |
+| ---------- | -----------------: |
+| Training   |              7,018 |
+| Validation |              1,481 |
+| Testing    |              1,501 |
+| **Total**  |         **10,000** |
+
+Vocabulary size: 3,695 words.
+
+Maximum sequence length: 256 tokens.
+
+## 3. Model Configuration
+
+**Text Processing:**
+
+- Converts ingredient text into tokens.
+- Builds a vocabulary using training data.
+- Converts words into numerical token IDs.
+- Uses an embedding layer to represent words as vectors.
+- Embedding dimension: 128.
+- Maximum vocabulary size: 30,000.
+
+**1D CNN Architecture:**
+
+- Three convolutional layers with kernel sizes 3, 5 and 7.
+- 128 output channels per convolution.
+- ReLU activation function.
+- Global max pooling to extract important features.
+- Dropout rate: 0.4.
+- Fully connected output layer with four classes.
+
+**Training Configuration:**
+
+- Optimizer: AdamW.
+- Learning rate: 0.001.
+- Batch size: 64.
+- Maximum epochs: 12.
+- Early stopping patience: 3.
+- Random seed: 42.
+- Best model selected using validation macro F1-score.
+
+## 4. Overall Performance
+
+| Metric         | Validation |   Test |
+| -------------- | ---------: | -----: |
+| Accuracy       |     89.06% | 88.94% |
+| Macro F1-score |     0.8904 | 0.8889 |
+
+## 5. Test Classification Report
+
+| NOVA Group | Precision | Recall | F1-score | Support |
+| ---------- | --------: | -----: | -------: | ------: |
+| NOVA 1     |      0.89 |   0.87 |     0.88 |     383 |
+| NOVA 2     |      0.87 |   0.91 |     0.89 |     373 |
+| NOVA 3     |      0.86 |   0.84 |     0.85 |     365 |
+| NOVA 4     |      0.94 |   0.93 |     0.94 |     380 |
+
+## 6. Confusion Matrix
+
+Rows represent actual NOVA groups, while columns represent predicted NOVA groups.
+
+| Actual / Predicted | NOVA 1 | NOVA 2 | NOVA 3 | NOVA 4 |
+| ------------------ | -----: | -----: | -----: | -----: |
+| NOVA 1             |    335 |     28 |     14 |      6 |
+| NOVA 2             |     18 |    340 |     12 |      3 |
+| NOVA 3             |     22 |     23 |    305 |     15 |
+| NOVA 4             |      2 |      1 |     22 |    355 |
+
+## 7. Key Observations
+
+1. The model achieved **88.94% test accuracy**.
+2. NOVA 4 achieved the strongest F1-score of 0.94.
+3. NOVA 2 achieved an F1-score of 0.89, showing a substantial improvement over the Logistic Regression baseline.
+4. NOVA 3 remained the most challenging class, with an F1-score of 0.85.
+5. The CNN achieved 1,335 correct predictions out of 1,501 test products.
+6. Training accuracy reached 97.45%, while the best validation accuracy was 89.06%, suggesting some overfitting.
+7. Early stopping helped select the best-performing validation checkpoint.
+
+## 8. Conclusion
+
+The 1D CNN outperformed the TF-IDF + Logistic Regression baseline on the same test dataset.
+
+Test accuracy increased from **82.01% to 88.94%**, while macro F1-score increased from **0.8188 to 0.8889**.
+
+The CNN demonstrated that learning word and phrase patterns through convolutional layers can improve NOVA classification performance.
+
+However, these results are based on the current balanced English-language dataset. Further evaluation on naturally distributed and external product data is required.
+
+---
+
+# 3. Model Performance Comparison
+
+| Model                        | Category       | Test Accuracy | Test Macro F1 |
+| ---------------------------- | -------------- | ------------: | ------------: |
+| TF-IDF + Logistic Regression | Traditional ML |        82.01% |        0.8188 |
+| 1D CNN                       | Deep Learning  |    **88.94%** |    **0.8889** |
 
 ---
 
@@ -89,7 +202,7 @@ Future CNN, LSTM and Transformer models will be evaluated using the same trainin
 | Experiment | Model                        | Category       | Status    |
 | ---------- | ---------------------------- | -------------- | --------- |
 | 1          | TF-IDF + Logistic Regression | Traditional ML | Completed |
-| 2          | 1D CNN                       | Deep Learning  | Pending   |
+| 2          | 1D CNN                       | Deep Learning  | Completed |
 | 3          | LSTM                         | Deep Learning  | Pending   |
 | 4          | Transformer                  | Deep Learning  | Pending   |
 
