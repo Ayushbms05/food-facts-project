@@ -11,7 +11,7 @@ import pyarrow.parquet as pq
 # --------------------------------------------------
 
 DATA_PATH = Path("data/food.parquet")
-OUTPUT_PATH = Path("data/deep_learning/long_text_review.csv")
+OUTPUT_PATH = Path("data/deep_learning/reports/long_text_review.csv")
 
 BATCH_SIZE = 5000
 LONG_TEXT_LIMIT = 1000

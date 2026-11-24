@@ -6,9 +6,9 @@ import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-DATA_DIR = PROJECT_ROOT / "data" / "deep_learning"
+DATA_DIR = PROJECT_ROOT / "data" / "deep_learning" / "datasets"
 INPUT_FILE = DATA_DIR / "training_sample.csv"
 
 RANDOM_STATE = 42

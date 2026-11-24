@@ -18,7 +18,7 @@ from sklearn.metrics import (
 # 1. SETTINGS
 # --------------------------------------------------
 
-DATA_DIR = Path("data/deep_learning")
+DATA_DIR = Path("data/deep_learning/datasets")
 
 TRAIN_PATH = DATA_DIR / "train.csv"
 VALIDATION_PATH = DATA_DIR / "validation.csv"

@@ -28,9 +28,9 @@ EPOCHS = 12
 LEARNING_RATE = 0.001
 PATIENCE = 3
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data" / "deep_learning"
-MODEL_DIR = DATA_DIR
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DATA_DIR = PROJECT_ROOT / "data" / "deep_learning" / "datasets"
+MODEL_DIR = PROJECT_ROOT / "data" / "deep_learning" / "models"
 
 TRAIN_PATH = DATA_DIR / "train.csv"
 VALIDATION_PATH = DATA_DIR / "validation.csv"

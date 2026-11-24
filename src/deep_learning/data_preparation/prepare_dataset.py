@@ -11,10 +11,10 @@ import pyarrow.parquet as pq
 # 1. Project paths and settings
 # --------------------------------------------------
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 INPUT_FILE = PROJECT_ROOT / "data" / "food.parquet"
-OUTPUT_DIR = PROJECT_ROOT / "data" / "deep_learning"
+OUTPUT_DIR = PROJECT_ROOT / "data" / "deep_learning" / "datasets"
 OUTPUT_FILE = OUTPUT_DIR / "training_sample.csv"
 
 BATCH_SIZE = 5_000

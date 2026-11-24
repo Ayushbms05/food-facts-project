@@ -37,15 +37,15 @@ EPOCHS = 12
 LEARNING_RATE = 0.001
 PATIENCE = 3
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data" / "deep_learning"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DATA_DIR = PROJECT_ROOT / "data" / "deep_learning" / "datasets"
 
 TRAIN_PATH = DATA_DIR / "train.csv"
 VALIDATION_PATH = DATA_DIR / "validation.csv"
 TEST_PATH = DATA_DIR / "test.csv"
 
-MODEL_PATH = DATA_DIR / "lstm_best.pt"
-VOCAB_PATH = DATA_DIR / "lstm_vocab.json"
+MODEL_PATH = PROJECT_ROOT / "data" / "deep_learning" / "models" / "lstm_best.pt"
+VOCAB_PATH = PROJECT_ROOT / "data" / "deep_learning" / "models" / "lstm_vocab.json"
 
 
 # --------------------------------------------------

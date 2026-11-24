@@ -3,6 +3,7 @@ venv/
 data/
 __pycache__/
 *.pyc
+*.py[cod]
 .ipynb_checkpoints/
 .DS_Store
 *.csv

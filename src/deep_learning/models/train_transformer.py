@@ -32,14 +32,14 @@ EPOCHS = 3
 LEARNING_RATE = 2e-5
 PATIENCE = 2
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data" / "deep_learning"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DATA_DIR = PROJECT_ROOT / "data" / "deep_learning" / "datasets"
 
 TRAIN_PATH = DATA_DIR / "train.csv"
 VALIDATION_PATH = DATA_DIR / "validation.csv"
 TEST_PATH = DATA_DIR / "test.csv"
 
-MODEL_DIR = DATA_DIR / "distilbert_food_nova"
+MODEL_DIR = PROJECT_ROOT / "data" / "deep_learning" / "models" / "distilbert_food_nova"
 
 LABEL_NAMES = ["NOVA 1", "NOVA 2", "NOVA 3", "NOVA 4"]
 
