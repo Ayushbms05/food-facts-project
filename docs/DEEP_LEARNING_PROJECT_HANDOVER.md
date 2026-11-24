@@ -1,62 +1,62 @@
 # Food Health Prediction Project — Deep Learning Handover
 
-**Last updated: 8 November 2026**  
-**Workstream: Member 2 — Deep Learning / Machine Learning**
+**Last updated:** 24 November 2026  
+**Workstream:** Member 2 — Deep Learning / Machine Learning  
+**Current status:** Four model experiments completed; model comparison completed; deployment and application integration remain.
 
-This is the current, comprehensive handover for the Deep Learning (DL) workstream of the Food Health Prediction project. It is intended for the project owner, teammates, and a future ChatGPT conversation so work can continue without repeating completed investigations.
+This document provides a comprehensive handover of the Deep Learning (DL) workstream. It records the project's purpose, dataset investigations, preprocessing, model architectures, experiment results, decisions, limitations, and remaining tasks.
 
-> **Status discipline:** This document distinguishes confirmed results from plans and items that still need verification. Do not assume that a file was committed, pushed, or shared unless the user confirms it or a fresh Git status proves it.
+**Status discipline:** Distinguish completed work from planned work. Do not assume files have been committed or pushed without checking Git. Do not claim Android integration or real-world model performance has been verified when it has not.
 
 ---
 
-# 1. Project overview
+# 1. Project Overview
 
-The wider Food Health Prediction project has three workstreams:
+The Food Health Prediction project has three main workstreams:
 
-1. **Big Data Analytics (BDA):** process and integrate large food-product datasets, including Open Food Facts (OFF) and USDA data, using Apache Spark.
-2. **Deep Learning / Machine Learning:** predict a product's NOVA food-processing group (1–4) from its ingredient text.
-3. **Mobile application:** Android-first app is being considered; Flutter has been discussed as a possible technology.
+1. **Big Data Analytics (BDA):** Process and integrate large food-product datasets, including Open Food Facts (OFF) and USDA data, using Apache Spark.
+2. **Deep Learning / Machine Learning:** Predict a food product's NOVA processing group (1–4) using ingredient text.
+3. **Mobile Application:** Develop an Android-first application that can identify food products and display relevant product information and NOVA predictions.
 
 The current DL research question is:
 
-> **Can a model predict a product's NOVA group from its ingredient text?**
+> Can a model predict a product's NOVA group from its ingredient text?
 
 ## What NOVA means
 
-NOVA classifies foods according to the nature and extent of processing. It is **not simply a healthy-versus-unhealthy label**.
+NOVA classifies foods according to the nature and extent of food processing. It is not simply a healthy-versus-unhealthy classification.
 
-- **NOVA 1:** unprocessed or minimally processed foods.
-- **NOVA 2:** processed culinary ingredients.
-- **NOVA 3:** processed foods.
-- **NOVA 4:** ultra-processed foods.
+- **NOVA 1:** Unprocessed or minimally processed foods.
+- **NOVA 2:** Processed culinary ingredients.
+- **NOVA 3:** Processed foods.
+- **NOVA 4:** Ultra-processed foods.
 
-The exact classification can depend on ingredients, manufacturing processes, and product context. Ingredient text alone may not contain all the information needed to assign a NOVA group. Identical or near-identical ingredient descriptions can appear with different NOVA labels.
+The exact classification can depend on ingredients, manufacturing processes, and product context.
 
 ## Important project limitation
 
-A model trained only on ingredient text can learn patterns associated with the labels, but it cannot reliably infer manufacturing details that are absent from the text. Dataset labels may also contain inconsistencies. Model results must be presented with these limitations.
+Ingredient text alone may not contain all the information required to assign a correct NOVA group. Two products with identical or similar ingredient descriptions may have different labels because manufacturing details or other context are missing.
+
+The model learns patterns associated with the available dataset labels. Its predictions should not be presented as guaranteed NOVA classifications.
 
 ---
 
-# 2. Team and workstream context
+# 2. Team and Workstream Context
 
-Known project roles and context:
-
-- **BDA workstream:** Apache Spark processing and integration of OFF and USDA data.
-- **DL workstream:** ingredient-text extraction, dataset preparation, quality investigation, and model development.
-- **Mobile app workstream:** Android-first application; Flutter has been discussed.
+- **BDA:** Apache Spark processing and integration of OFF and USDA data.
+- **DL:** Ingredient-text extraction, dataset preparation, quality investigation, model training and evaluation.
+- **Mobile application:** Android-first application development.
 
 ## Historical BDA integration results
 
-The following figures were reported in shared project conversations by the BDA workstream. They have not been independently re-verified as part of this DL handover.
+The following figures were reported by the BDA workstream in shared project conversations. They have not been independently re-verified in this DL workstream.
 
-| Metric | Reported value |
-|---|---:|
-| Matched products | 368,055 |
-| Products with OFF ingredients | 314,306 |
-| Products with USDA ingredients | 365,741 |
-| Products with both ingredient sources | 313,501 |
-| Extra OFF records | 1 |
+| Metric                                | Reported value |
+| ------------------------------------- | -------------: |
+| Matched products                      |        368,055 |
+| Products with OFF ingredients         |        314,306 |
+| Products with USDA ingredients        |        365,741 |
+| Products with both ingredient sources |        313,501 |
 
 Historical output paths mentioned:
 
@@ -65,25 +65,15 @@ data/integration/combined_products.parquet
 data/integration/usda_latest.parquet
 ```
 
-**Do not assume these paths exist in the DL user's local checkout.** Verify the files, schema, provenance, and branch before changing the DL source dataset. The DL work described below has been performed using `data/food.parquet`, not the confirmed integrated BDA output.
+Do not assume these files exist in the current DL checkout. Verify their existence, schema, provenance and branch before changing the DL dataset source.
 
-The BDA teammate also reported a corrected lookup summary:
-
-| Lookup category | Count |
-|---|---:|
-| Found with NOVA | 230 |
-| Found without NOVA | 40 |
-| Sentinel barcode collision | 30 |
-
-These are teammate-reported results, not a DL-side verification.
+The DL experiments documented below were performed using `data/food.parquet`, not a verified BDA integrated output.
 
 ---
 
-# 3. Repository, branch, and local environment
+# 3. Repository, Branch and Environment
 
-## Repository and branch
-
-Repository folder:
+## Repository
 
 ```text
 food-facts-project/
@@ -101,11 +91,9 @@ Shared team branch:
 main
 ```
 
-Develop and push DL changes to `feature/deep-learning`, not directly to `main`.
+DL changes should be developed and pushed to `feature/deep-learning`, not directly to `main`.
 
 ## Observed project structure
-
-The following is the expected/observed layout. Some files and generated outputs are local and may be ignored by Git.
 
 ```text
 food-facts-project/
@@ -119,139 +107,139 @@ food-facts-project/
 │       ├── analyze_text_quality.py
 │       ├── analyze_full_dataset.py
 │       ├── investigate_long_texts.py
-│       └── sample_long_texts.py
+│       ├── sample_long_texts.py
+│       ├── train_baseline.py
+│       ├── train_cnn.py
+│       ├── train_lstm.py
+│       └── train_transformer.py
 ├── docs/
+│   ├── DEEP_LEARNING_PROJECT_HANDOVER.md
+│   └── MODEL_EXPERIMENT_RESULTS.md
+├── data/
 ├── notebooks/
 ├── notes/
-├── data/
 ├── .venv/
 ├── .gitignore
 └── README.md
 ```
 
-A baseline training script has been proposed but **has not been confirmed as created or run**:
+The listed training and analysis scripts were present in the user's local checkout when the experiments were conducted. Their current Git tracking and remote status must be checked separately.
 
-```text
-src/deep_learning/train_baseline.py
-```
-
-## Local machine and software
-
-Known local setup:
+## Local machine
 
 - MacBook Air with Apple M1 chip.
 - 8 GB unified memory.
-- Python 3.12.5, ARM64.
-- macOS 26.3 was reported.
-- Existing project virtual environment: `.venv`.
-- Keep using the existing `.venv`; do not recreate it without a reason.
-- Terminal prompt has shown both `(.venv)` and `(base)`. Confirm the project virtual environment is active when running scripts.
+- Python 3.12.5 ARM64 was previously reported.
+- Existing virtual environment: `.venv`.
+- macOS 26.3 was previously reported.
 
-Previously reported package versions/status:
+Continue using the existing `.venv`; do not recreate it without a reason.
 
-| Library / capability | Reported version or status |
-|---|---|
-| NumPy | 2.5.4 |
-| Pandas | 3.1.1 |
-| scikit-learn | 1.9.1 |
-| PyArrow | 26.0.1 |
-| PyTorch | 2.15.0 |
-| PyTorch MPS build | Available |
-| PyTorch MPS device | Available |
+## Reported software versions
 
-The environment check previously reported:
+| Library / capability | Version or status            |
+| -------------------- | ---------------------------- |
+| PyTorch              | 2.15.0                       |
+| Transformers         | 5.24.0                       |
+| scikit-learn         | 1.9.1 (previously reported)  |
+| Pandas               | 3.1.1 (previously reported)  |
+| PyArrow              | 26.0.1 (previously reported) |
+| PyTorch MPS          | Available                    |
+| MPS build            | Available                    |
 
-```python
-torch.backends.mps.is_built()      # True
-torch.backends.mps.is_available()  # True
-```
-
-The device string was `mps`.
-
-### Apple Metal / MPS explanation
-
-Apple Metal is Apple's GPU-computing technology. PyTorch exposes GPU support on Apple silicon through the **MPS (Metal Performance Shaders) backend**. This can accelerate supported neural-network operations on the M1 GPU without an NVIDIA GPU.
-
-Example device selection:
+The following checks were successfully executed:
 
 ```python
 import torch
 
-device = torch.device(
-    "mps" if torch.backends.mps.is_available() else "cpu"
-)
-print("Using:", device)
+print(torch.__version__)
+print(torch.backends.mps.is_available())
+print(torch.backends.mps.is_built())
 ```
 
-For PyTorch models and tensors, the model and tensors must be moved to the same device. MPS operation coverage and performance vary by model and operation; CPU fallback may be needed for unsupported operations.
+Reported output:
 
-### Hardware constraint
+```text
+PyTorch: 2.15.0
+MPS available: True
+MPS built: True
+```
 
-The Mac has 8 GB unified memory shared by CPU and GPU. Use small batches, modest sequence lengths, and compact models. Do not assume a large transformer can be trained comfortably locally. A cloud GPU may be useful for larger experiments.
+An LSTM forward-pass test on MPS also succeeded.
 
-### Memory-safe data handling
+## Apple MPS explanation
 
-The source Parquet file contains almost 4.9 million rows. Do **not** load the entire Parquet dataset into Pandas. The full-dataset scripts use PyArrow batch iteration (5,000 rows per batch) and process rows incrementally.
+Apple Metal is Apple's GPU-computing technology. PyTorch provides Apple GPU support through the MPS (Metal Performance Shaders) backend.
+
+This allowed the CNN, LSTM and DistilBERT experiments to use the M1 GPU.
+
+The machine has only 8 GB of unified memory shared between CPU and GPU. Smaller batches and compact models are therefore important.
 
 ---
 
-# 4. Source dataset and characteristics
+# 4. Source Dataset
 
-Current DL source file:
+Current DL source:
 
 ```text
 data/food.parquet
 ```
 
-Reported Parquet row count:
+Previously reported row count:
 
 ```text
 4,895,629
 ```
 
-Relevant columns:
+Important columns:
 
-- `code`: product barcode/code.
-- `ingredients`: structured JSON-like ingredient data, not plain text.
-- `nova_group`: NOVA class, expected values 1–4 plus missing/invalid values.
-- `lang`: product language code.
+| Column        | Description                                 |
+| ------------- | ------------------------------------------- |
+| `code`        | Product barcode/code                        |
+| `ingredients` | Structured JSON-like ingredient information |
+| `nova_group`  | NOVA label, expected values 1–4             |
+| `lang`        | Product language code                       |
 
-Ingredient objects may contain a `text` field and nested `ingredients` lists/objects. The extraction function recursively extracts both parent and nested ingredient text.
+The `ingredients` field is structured data, not plain text. It can contain a `text` field and nested ingredient lists.
 
-**Language caveat:** `lang` is a product language field. It does not guarantee every ingredient phrase in the record is in that language.
+The preparation script recursively extracts ingredient text, including nested ingredients.
 
-## Previously reported language counts
+**Language caveat:** The `lang` field identifies the product language but does not guarantee that every ingredient phrase in the record is written in that language.
 
-| Language | Reported product rows |
-|---|---:|
-| English (`en`) | 2,054,773 |
-| French (`fr`) | 1,386,936 |
-| Spanish (`es`) | 385,414 |
-| German (`de`) | 360,625 |
-| Italian (`it`) | 256,815 |
-| Dutch (`nl`) | 103,694 |
+## Reported language counts
 
-Other languages are present. These are historical scan results and may change with a different dataset version.
+| Language | Product rows |
+| -------- | -----------: |
+| English  |    2,054,773 |
+| French   |    1,386,936 |
+| Spanish  |      385,414 |
+| German   |      360,625 |
+| Italian  |      256,815 |
+| Dutch    |      103,694 |
 
-## English-first decision and future multilingual scope
+These are historical scan results and may vary with a different dataset snapshot.
 
-The first sample was filtered using `lang == "en"` to establish a manageable baseline. This is a practical starting point, **not a decision to make the final project English-only**.
+## English-first decision
+
+The initial experiments use English-language records to establish a reproducible baseline.
+
+This does not mean the final project is intended to be English-only.
 
 Agreed direction:
 
-1. Establish a reproducible English baseline first.
-2. Preserve the original multilingual Parquet source and language information.
-3. Avoid designing the entire pipeline around an irreversible English-only assumption.
-4. Later evaluate multilingual approaches using suitable multilingual text models and language-specific metrics.
-5. Develop an India-focused evaluation/expansion using Indian packaged products, ingredient terms, and languages where sufficient labelled data is available.
+1. Establish an English baseline.
+2. Preserve original multilingual data and language metadata.
+3. Expand to multilingual evaluation later.
+4. Investigate Indian packaged foods and ingredient terminology.
+5. Evaluate performance separately by language and product population.
 
-Potential future multilingual models include mBERT and XLM-RoBERTa. They are future candidates, not models already trained or evaluated in this project.
+Potential future models include mBERT and XLM-RoBERTa. These have not yet been trained or evaluated in this project.
 
-Potential India-focused terms and product context include atta, maida, besan, paneer, ghee, masalas, regional packaged foods, and Indian product brands. Do not infer NOVA class from an ingredient name or country alone; continue to apply NOVA criteria.
+Potential Indian ingredient terms include atta, maida, besan, paneer, ghee and masalas. NOVA classification must not be inferred from an ingredient name or country alone.
 
 ---
 
-# 5. Dataset preparation
+# 5. Dataset Preparation
 
 ## 5.1 `prepare_dataset.py`
 
@@ -263,50 +251,50 @@ src/deep_learning/prepare_dataset.py
 
 Purpose:
 
-- Read `data/food.parquet` using PyArrow batches.
-- Avoid loading the full dataset into Pandas.
-- Keep English product records for the initial baseline (`lang == "en"`).
-- Skip records with missing/invalid NOVA labels or empty ingredient text.
-- Recursively extract text from the structured ingredient field, including nested ingredients.
+- Read the large Parquet file using PyArrow batches.
+- Avoid loading the entire dataset into Pandas.
+- Filter English records using `lang == "en"`.
+- Skip missing or invalid NOVA labels.
+- Skip records with missing ingredient text.
+- Recursively extract ingredient text from structured data.
 - Use reservoir sampling to select up to 2,500 products per NOVA class.
-- Save a balanced 10,000-row sample.
+- Generate a balanced 10,000-product sample.
 
-Implementation details reported:
+Implementation details:
 
-- `pyarrow.parquet.ParquetFile`
-- `iter_batches(batch_size=5000, ...)`
-- Selected columns: `code`, `ingredients`, `nova_group`, `lang`
-- `use_threads=False`
-- Random seed: 42
-- Output: `data/deep_learning/training_sample.csv`
-- Columns: `code`, `ingredient_text`, `nova_group`
+- PyArrow Parquet batch processing.
+- Batch size: 5,000.
+- `use_threads=False`.
+- Random seed: 42.
+- Selected columns: `code`, `ingredients`, `nova_group`, `lang`.
 
-### Full eligible English counts from the preparation/full-scan work
+Output:
 
-| NOVA group | Eligible English records |
-|---|---:|
-| 1 | 53,594 |
-| 2 | 8,684 |
-| 3 | 91,175 |
-| 4 | 387,061 |
-| **Total** | **540,514** |
+```text
+data/deep_learning/training_sample.csv
+```
 
-The script selected 2,500 records from each group, for 10,000 total.
+Columns:
 
-An earlier non-English-filtered run reported different eligible counts:
+```text
+code, ingredient_text, nova_group
+```
 
-| NOVA group | Earlier all-language eligible count |
-|---|---:|
-| 1 | 133,848 |
-| 2 | 20,672 |
-| 3 | 217,683 |
-| 4 | 755,503 |
+## 5.2 Full eligible English dataset counts
 
-The English-filtered run overwrote `training_sample.csv`. The earlier all-language sample was not confirmed as separately saved.
+| NOVA group | Eligible English products |
+| ---------- | ------------------------: |
+| NOVA 1     |                    53,594 |
+| NOVA 2     |                     8,684 |
+| NOVA 3     |                    91,175 |
+| NOVA 4     |                   387,061 |
+| **Total**  |               **540,514** |
+
+The balanced sample selected 2,500 records per class, giving 10,000 products.
 
 ---
 
-# 6. Dataset quality checks and duplicate investigation
+# 6. Dataset Quality and Duplicate Investigation
 
 ## 6.1 `check_dataset.py`
 
@@ -316,37 +304,26 @@ Path:
 src/deep_learning/check_dataset.py
 ```
 
-Purpose: inspect the 10,000-row sample for missing values, duplicate product codes, repeated descriptions, NOVA distribution, and text length.
+Reported sample checks:
 
-Reported results:
+| Check                                  |            Result |
+| -------------------------------------- | ----------------: |
+| Rows                                   |            10,000 |
+| Columns                                |                 3 |
+| Missing product codes                  |                 0 |
+| Missing ingredient text                |                 0 |
+| Missing NOVA labels                    |                 0 |
+| Duplicate barcodes                     |                 0 |
+| Initial exact repeated descriptions    |             2,315 |
+| Unique descriptions                    |             7,685 |
+| Descriptions shorter than 5 characters |               143 |
+| Mean text length                       | 129.55 characters |
+| Median text length                     |     56 characters |
+| Maximum text length                    |  2,551 characters |
 
-| Check | Result |
-|---|---:|
-| Rows | 10,000 |
-| Columns | 3 |
-| Missing `code` | 0 |
-| Missing `ingredient_text` | 0 |
-| Missing `nova_group` | 0 |
-| Duplicate barcodes | 0 |
-| Exact repeated ingredient descriptions (initial check) | 2,315 |
-| Unique descriptions | 7,685 |
-| Descriptions shorter than 5 characters | 143 |
-| Mean text length | 129.55 characters |
-| Median text length | 56 characters |
-| Maximum text length | 2,551 characters |
+Each NOVA group had 2,500 products in the balanced sample.
 
-NOVA sample distribution:
-
-| NOVA group | Sample count |
-|---|---:|
-| 1 | 2,500 |
-| 2 | 2,500 |
-| 3 | 2,500 |
-| 4 | 2,500 |
-
-Short ingredient descriptions should not be removed solely because they are short. Examples such as `egg`, `salt`, `oil`, `honey`, or `broccoli` can be valid descriptions of single-ingredient products.
-
-Different barcodes with the same ingredient description are not necessarily duplicate products.
+Short descriptions such as `egg`, `salt`, `oil`, `honey` or `broccoli` can be valid single-ingredient products. They should not be deleted automatically.
 
 ## 6.2 `investigate_duplicates.py`
 
@@ -356,15 +333,13 @@ Path:
 src/deep_learning/investigate_duplicates.py
 ```
 
-Purpose: normalize ingredient descriptions and investigate whether the same description occurs with different NOVA labels.
+Normalization:
 
-Normalization reported:
+- Lowercase.
+- Strip leading/trailing whitespace.
+- Collapse repeated whitespace.
 
-- lowercase
-- trim leading/trailing whitespace
-- collapse repeated whitespace
-
-Latest reported results:
+Reported results:
 
 ```text
 Total products: 10000
@@ -373,40 +348,22 @@ Repeated unique descriptions: 551
 Descriptions with conflicting NOVA labels: 73
 ```
 
-Examples:
+Examples of descriptions appearing with different NOVA labels include:
 
-| Normalized ingredient description | NOVA labels observed |
-|---|---|
-| `_peanuts_, sea salt` | 2, 3 |
-| `agave nectar` | 1, 2 |
-| `almonds` | 1, 2 |
-| `apple cider vinegar, diluted with water to 5% acidity` | 1, 2 |
-| `apple cider vinegar, filtered water` | 1, 2 |
-| `arrowroot starch` | 2, 3 |
-| `avocado` | 1, 2 |
-| `avocado oil` | 2, 3 |
-| `balsamic vinegar` | 1, 2 |
+- `agave nectar`
+- `almonds`
+- `avocado`
+- `avocado oil`
+- `balsamic vinegar`
+- `arrowroot starch`
 
-Interpretation:
+Possible explanations include missing manufacturing context, label inconsistency and data-quality issues. These findings do not establish which label is correct.
 
-- 3,382 product rows belong to repeated descriptions.
-- Those rows correspond to 551 distinct normalized descriptions that repeat.
-- 73 repeated descriptions have more than one NOVA label.
-- Potential explanations include missing product/manufacturing context, label inconsistency, and data-quality issues. These results do not prove which label is correct.
-
-**Decision:** Do not automatically delete all repeated descriptions or all conflicting-label rows. Keep the data for now, document the limitation, and prevent identical normalized descriptions from leaking across train/validation/test partitions.
-
-An earlier version of the script may have written:
-
-```text
-data/deep_learning/duplicate_analysis.csv
-```
-
-Verify the current script before relying on that generated file.
+**Decision:** Do not automatically delete all repeated descriptions or conflicting-label rows. Keep them documented and prevent identical normalized descriptions from crossing dataset partitions.
 
 ---
 
-# 7. Train / validation / test split
+# 7. Train, Validation and Test Split
 
 ## 7.1 `split_dataset.py`
 
@@ -416,61 +373,53 @@ Path:
 src/deep_learning/split_dataset.py
 ```
 
-**Status: implemented and run successfully according to the user's reported output.**
+The script created three partitions while ensuring normalized ingredient descriptions did not overlap across them.
 
-Purpose:
+Implementation:
 
-- Split the 10,000-row balanced sample into training, validation, and test sets.
-- Keep identical normalized ingredient descriptions in the same partition.
-- Reduce data leakage risk.
-- Aim for approximately 70% / 15% / 15% split proportions while preserving class balance.
-
-Implementation reported:
-
-- Normalize ingredient text (lowercase, trim, collapse whitespace).
+- Normalize ingredient text.
 - Use `GroupShuffleSplit`.
-- Search 500 candidate splits for a good balance of class proportions and split sizes.
-- Fixed seeds 42 and 43.
-- Save `train.csv`, `validation.csv`, and `test.csv` under `data/deep_learning/`.
+- Search 500 candidate splits.
+- Use fixed random seeds 42 and 43.
+- Target approximately 70% / 15% / 15%.
 
-### Latest reported split sizes
+## Reported split sizes
 
-| Partition | Rows | Approx. share |
-|---|---:|---:|
-| Training | 7,018 | 70.18% |
-| Validation | 1,481 | 14.81% |
-| Test | 1,501 | 15.01% |
-| **Total** | **10,000** | **100%** |
+| Partition  |   Products |
+| ---------- | ---------: |
+| Training   |      7,018 |
+| Validation |      1,481 |
+| Testing    |      1,501 |
+| **Total**  | **10,000** |
 
-### NOVA distribution by split
+## Class distribution
 
 | NOVA group | Training | Validation | Test |
-|---|---:|---:|---:|
-| 1 | 1,742 | 375 | 383 |
-| 2 | 1,758 | 369 | 373 |
-| 3 | 1,767 | 368 | 365 |
-| 4 | 1,751 | 369 | 380 |
+| ---------- | -------: | ---------: | ---: |
+| NOVA 1     |    1,742 |        375 |  383 |
+| NOVA 2     |    1,758 |        369 |  373 |
+| NOVA 3     |    1,767 |        368 |  365 |
+| NOVA 4     |    1,751 |        369 |  380 |
 
-The reported percentages in each split were close to 25% per class.
+## Leakage verification
 
-### Leakage verification
+Reported output:
 
 ```text
 train-validation 0
 train-test 0
 validation-test 0
+
 SUCCESS: No ingredient-description leakage!
 ```
 
-This is an important milestone: no normalized ingredient description was shared across the three partitions in that reported run.
+No normalized ingredient description was shared across the three partitions in the reported split.
 
-### Important evaluation caveat
-
-This is a **balanced test set created from a balanced sample**. It is useful for comparing initial models across the four classes, but it does not represent the natural NOVA distribution in the full English dataset. Later, evaluate on a representative/natural-distribution sample as well, or clearly state this limitation in reports.
+**Important evaluation limitation:** This is a balanced test set. It is useful for comparing the initial models, but it does not represent the natural NOVA distribution of the full English dataset.
 
 ---
 
-# 8. Text quality investigation
+# 8. Text Quality and Long-Description Investigation
 
 ## 8.1 `analyze_text_quality.py`
 
@@ -480,41 +429,28 @@ Path:
 src/deep_learning/analyze_text_quality.py
 ```
 
-Purpose: examine the sampled ingredient text for length, unusual content, numbers, punctuation, non-ASCII characters, and possible contamination.
+Reported results from the 10,000-product sample:
 
-Reported results for the 10,000-row sample:
+| Measure                                 | Result |
+| --------------------------------------- | -----: |
+| Mean characters                         | 129.55 |
+| Standard deviation                      | 196.81 |
+| Minimum                                 |      3 |
+| Median                                  |     56 |
+| Maximum                                 |  2,551 |
+| Mean words                              |  17.79 |
+| Median words                            |      8 |
+| Maximum words                           |    361 |
+| Short descriptions under 5 characters   |    143 |
+| Long descriptions over 1,000 characters |     82 |
+| Records containing numbers              |  1,699 |
+| Records containing punctuation          |  7,297 |
+| Records with non-ASCII characters       |    461 |
+| Unusual whitespace                      |      0 |
 
-| Measure | Result |
-|---|---:|
-| Number of records | 10,000 |
-| Mean characters | 129.55 |
-| Standard deviation | 196.81 |
-| Minimum characters | 3 |
-| 25th percentile | 17 |
-| Median characters | 56 |
-| 75th percentile | 160 |
-| Maximum characters | 2,551 |
-| Mean words | 17.79 |
-| Median words | 8 |
-| Maximum words | 361 |
-| Short descriptions under 5 characters | 143 |
-| Long descriptions over 1,000 characters | 82 |
-| Records containing numbers | 1,699 (16.99%) |
-| Records containing punctuation | 7,297 (72.97%) |
-| Records with non-ASCII characters | 461 (4.61%) |
-| Unusual whitespace | 0 |
+Numbers, punctuation and non-ASCII characters were not automatically removed because they may carry useful ingredient information.
 
-Examples of short descriptions included `Pork`, `Eggs`, `oats`, `Corn`, `SALT`, `Beef`, and `milk`. These can be valid and should not be removed automatically.
-
-Some long descriptions included ingredient lists mixed with label text, warnings, packaging/recycling instructions, manufacturer details, marketing text, or non-English content.
-
-**Decision:** Do not indiscriminately strip numbers, punctuation, or non-ASCII characters. They can carry useful information such as ingredient percentages, quantities, additive codes, and language-specific words. Inspect and clean based on evidence.
-
----
-
-# 9. Full-dataset analysis
-
-## 9.1 `analyze_full_dataset.py`
+## 8.2 `analyze_full_dataset.py`
 
 Path:
 
@@ -522,111 +458,58 @@ Path:
 src/deep_learning/analyze_full_dataset.py
 ```
 
-Purpose: scan the full Parquet dataset in batches to count eligible English products, NOVA distribution, ingredient-text lengths, and long descriptions by NOVA group.
+The full Parquet file was scanned using PyArrow batches.
 
-The script uses:
-
-- `pyarrow.parquet.ParquetFile`
-- `iter_batches(batch_size=5000, columns=[...], use_threads=False)`
-- recursive ingredient-text extraction
-- `lang == "en"` filter
-- valid NOVA values 1–4
-- non-empty ingredient text requirement
-
-### Latest full-dataset scan output (8 November 2026)
+Reported results:
 
 ```text
-Starting full dataset analysis...
-Dataset: data/food.parquet
-Total rows in Parquet file: 4,895,629
-
-Processed approximately 500,000 rows...
-Processed approximately 1,000,000 rows...
-Processed approximately 1,500,000 rows...
-Processed approximately 2,000,000 rows...
-Processed approximately 2,500,000 rows...
-Processed approximately 3,000,000 rows...
-Processed approximately 3,500,000 rows...
-Processed approximately 4,000,000 rows...
-Processed approximately 4,500,000 rows...
-
-========== FULL DATASET ANALYSIS ==========
+Total rows: 4,895,629
 Total English products: 2,054,773
 Eligible English products: 540,514
 Invalid or missing NOVA labels: 1,503,903
-Products with missing ingredient text: 10,356
-
-========== NOVA DISTRIBUTION ==========
-NOVA 1: 53,594 products (9.92%)
-NOVA 2: 8,684 products (1.61%)
-NOVA 3: 91,175 products (16.87%)
-NOVA 4: 387,061 products (71.61%)
-
-========== LONG DESCRIPTIONS BY NOVA ==========
-NOVA 1: 2 long descriptions (0.00% of that NOVA group)
-NOVA 2: 0 long descriptions (0.00% of that NOVA group)
-NOVA 3: 19 long descriptions (0.02% of that NOVA group)
-NOVA 4: 9,309 long descriptions (2.41% of that NOVA group)
-Total long descriptions: 9,330
-
-========== INGREDIENT TEXT LENGTH ==========
-Average characters: 242.96
-Median characters: 179.00
-Minimum characters: 1
-Maximum characters: 20,025
-25th percentile: 84.00
-75th percentile: 312.00
-
-Descriptions shorter than 5 characters: 2,877
-Descriptions longer than 1000 characters: 9,330
-Percentage of long descriptions: 1.73%
-
-Analysis complete.
+Missing ingredient text: 10,356
 ```
 
-### Full-dataset NOVA distribution
+### Natural NOVA distribution in eligible English data
 
-| NOVA group | Eligible English products | Share |
-|---|---:|---:|
-| 1 | 53,594 | 9.92% |
-| 2 | 8,684 | 1.61% |
-| 3 | 91,175 | 16.87% |
-| 4 | 387,061 | 71.61% |
-| **Total** | **540,514** | **100% (rounding)** |
+| NOVA group | Products |  Share |
+| ---------- | -------: | -----: |
+| NOVA 1     |   53,594 |  9.92% |
+| NOVA 2     |    8,684 |  1.61% |
+| NOVA 3     |   91,175 | 16.87% |
+| NOVA 4     |  387,061 | 71.61% |
 
-The natural English eligible population is strongly imbalanced, with NOVA 4 representing about 71.61% and NOVA 2 only about 1.61%.
+The natural dataset is strongly imbalanced, especially for NOVA 2 and NOVA 4.
 
-### Full-dataset ingredient-text lengths
+### Full-dataset text lengths
 
-| Measure | Result |
-|---|---:|
-| Mean | 242.96 characters |
-| Median | 179 characters |
-| Minimum | 1 character |
-| Maximum | 20,025 characters |
-| 25th percentile | 84 characters |
-| 75th percentile | 312 characters |
-| Under 5 characters | 2,877 |
-| Over 1,000 characters | 9,330 (1.73%) |
+| Measure                            |            Result |
+| ---------------------------------- | ----------------: |
+| Mean                               | 242.96 characters |
+| Median                             |    179 characters |
+| Minimum                            |       1 character |
+| Maximum                            | 20,025 characters |
+| 25th percentile                    |                84 |
+| 75th percentile                    |               312 |
+| Descriptions under 5 characters    |             2,877 |
+| Descriptions over 1,000 characters |             9,330 |
 
-### Important long-description finding
+### Long-description association
 
-Of the 9,330 eligible English descriptions longer than 1,000 characters:
+Of 9,330 descriptions longer than 1,000 characters:
 
-- NOVA 1: 2
-- NOVA 2: 0
-- NOVA 3: 19
-- NOVA 4: 9,309
+| NOVA group | Long descriptions |
+| ---------- | ----------------: |
+| NOVA 1     |                 2 |
+| NOVA 2     |                 0 |
+| NOVA 3     |                19 |
+| NOVA 4     |             9,309 |
 
-Thus 9,309 / 9,330 (about 99.8%) of the long descriptions are NOVA 4. Within NOVA 4, 2.41% of its eligible products have descriptions over 1,000 characters. The other classes have extremely few such descriptions.
+Approximately 99.8% of these long descriptions belong to NOVA 4.
 
-This is a strong class association in this dataset. It does **not** prove that long text causes NOVA 4 classification, nor that all long descriptions are poor quality. It may reflect the dataset's product mix and how product labels are recorded.
+This is a strong association in the dataset, but it does not prove that long text causes NOVA 4 classification or that all long descriptions are poor quality.
 
----
-
-# 10. Long-description investigation
-
-## 10.1 `investigate_long_texts.py`
+## 8.3 `investigate_long_texts.py`
 
 Path:
 
@@ -634,33 +517,21 @@ Path:
 src/deep_learning/investigate_long_texts.py
 ```
 
-Purpose: find and inspect the 20 longest ingredient descriptions in the full eligible English dataset.
+The script inspected the longest ingredient descriptions.
 
-The script initially had a heap tie-comparison issue when two records had equal lengths. It was fixed by adding a unique counter as a tie-breaker:
+The longest reported description was 20,025 characters.
 
-```python
-record_counter += 1
-heap_item = (record["length"], record_counter, record)
-```
+Some records contained genuine ingredients mixed with:
 
-Latest reported findings:
+- Multilingual label text.
+- Nutrition information.
+- OCR noise.
+- Multiple product varieties.
+- Cooking and storage instructions.
+- Warnings and manufacturer information.
+- Packaging details.
 
-- Maximum description length: 20,025 characters.
-- Long records often contain genuine ingredient data mixed with other label information.
-- Examples included multilingual label text (including Russian), nutrition values, OCR noise, multiple product varieties, instructions, warnings, manufacturer information, and packaging text.
-
-Examples among the longest records:
-
-| Rank | Product code | NOVA | Text length |
-|---|---|---:|---:|
-| 1 | `4607084352115` | 4 | 20,025 |
-| 2 | `7622202013584` | 4 | 11,523 |
-| 3 | `4009176483262` | 4 | 8,563 |
-| 4 | `8711327624764` | 4 | 8,172 |
-
-These are investigation examples, not necessarily representative of all long descriptions.
-
-## 10.2 `sample_long_texts.py`
+## 8.4 `sample_long_texts.py`
 
 Path:
 
@@ -668,67 +539,23 @@ Path:
 src/deep_learning/sample_long_texts.py
 ```
 
-Purpose: use reproducible reservoir sampling to select 30 descriptions longer than 1,000 characters from the full eligible English population and save them for manual review.
-
 Output:
 
 ```text
 data/deep_learning/long_text_review.csv
 ```
 
-Columns:
+The script selected 30 descriptions longer than 1,000 characters using reservoir sampling and random seed 42.
 
-- `code`
-- `nova_group`
-- `text_length`
-- `ingredient_text`
+All 30 selected descriptions belonged to NOVA 4, consistent with the full-dataset distribution.
 
-Latest reported run:
-
-```text
-Total long descriptions found: 9,330
-Random descriptions selected: 30
-Random seed: 42
-Saved to: data/deep_learning/long_text_review.csv
-
-Sample NOVA distribution:
-NOVA 1: 0
-NOVA 2: 0
-NOVA 3: 0
-NOVA 4: 30
-```
-
-All 30 sampled descriptions happened to be NOVA 4. The full-dataset analysis later confirmed that 9,309 of the 9,330 long descriptions are NOVA 4, so the sample result is consistent with the full scan.
-
-Manual inspection of the sample found:
-- multiple product descriptions/varieties combined;
-- multilingual ingredient and label text;
-- storage and cooking instructions;
-- nutrition/health/supplement information;
-- manufacturer addresses, phone numbers and websites;
-- genuine complex ingredient lists.
-
-### Decision on long descriptions
-
-**Do not automatically delete all descriptions over 1,000 characters.**
-
-Reasons:
-- Some contain useful and genuine ingredient information.
-- Deleting all of them would disproportionately remove NOVA 4 examples.
-- The long-text association with NOVA 4 is a potential shortcut/leakage-like signal the model might exploit, but it is not enough by itself to justify deleting the records.
-
-Current plan:
-1. Preserve the original source records.
-2. Do not delete these rows from the dataset at this stage.
-3. Investigate and clean clearly irrelevant label content if a defensible method is developed.
-4. Compare performance with and without long descriptions or with a carefully defined text-cleaning treatment.
-5. Report the effect on each class, especially NOVA 4.
+**Decision:** Do not automatically remove all long descriptions. Preserve the source data and investigate defensible cleaning methods before changing the training dataset.
 
 ---
 
-# 11. Current generated data layout
+# 9. Generated Data Layout
 
-Expected local/generated files:
+Expected local data structure:
 
 ```text
 data/
@@ -738,344 +565,767 @@ data/
     ├── train.csv
     ├── validation.csv
     ├── test.csv
+    ├── duplicate_analysis.csv
     ├── long_text_review.csv
-    └── duplicate_analysis.csv        # may depend on script version
+    ├── cnn_best.pt
+    ├── cnn_vocab.json
+    ├── lstm_best.pt
+    ├── lstm_vocab.json
+    └── distilbert_food_nova/
 ```
 
-These generated datasets are local outputs and are intended to remain outside Git. They may need to be regenerated on another machine, provided the original Parquet source is obtained separately.
+The exact generated files should be checked in the local checkout.
+
+The CSV, Parquet and model checkpoint files are local generated outputs and should remain excluded from Git unless the team explicitly decides otherwise.
 
 ---
 
-# 12. Current Git status and workflow
+# 10. Model Development and Experiments
 
-## Last status actually shown by the user
+Four experiments have now been completed:
 
-The latest Git status shared in the conversation was:
+1. TF-IDF + Logistic Regression.
+2. 1D CNN.
+3. Bidirectional LSTM.
+4. DistilBERT Transformer.
 
-```text
-On branch feature/deep-learning
-Your branch is up to date with 'origin/feature/deep-learning'.
+All four models used the same training, validation and test partitions.
 
-Changes not staged for commit:
-  modified:   src/deep_learning/analyze_full_dataset.py
+The test set contains 1,501 products.
 
-Untracked files:
-  src/deep_learning/investigate_long_texts.py
-  src/deep_learning/sample_long_texts.py
+This makes the initial model comparison consistent, although it does not replace evaluation on naturally distributed or external data.
 
-no changes added to commit
-```
+## 10.1 Experiment 1 — TF-IDF + Logistic Regression
 
-At that point, the following three scripts needed staging/commit/push:
+**Category:** Traditional Machine Learning  
+**Status:** Completed
 
-```text
-src/deep_learning/analyze_full_dataset.py
-src/deep_learning/investigate_long_texts.py
-src/deep_learning/sample_long_texts.py
-```
-
-The assistant advised:
-
-```bash
-git add src/deep_learning/analyze_full_dataset.py \
-        src/deep_learning/investigate_long_texts.py \
-        src/deep_learning/sample_long_texts.py
-
-git commit -m "Add long ingredient text analysis"
-
-git push origin feature/deep-learning
-
-git status
-```
-
-**The user did not confirm the result of those commands before continuing.** Therefore, do not assume these files were pushed. Check a fresh `git status` and `git log` before making Git claims.
-
-The handover document itself was then uploaded in the conversation for revision. Its Git status is unknown.
-
-## Git safety rules
-
-- Check `git status` before staging.
-- Stage only specific code and documentation files.
-- Do not use `git add .` without reviewing what it will stage.
-- Do not commit `.venv/`, `data/`, Parquet files, generated CSVs, `__pycache__/`, or large local outputs.
-- Do not assume a commit or push succeeded without seeing confirmation.
-
-Intended `.gitignore` content previously discussed:
-
-```gitignore
-.venv/
-venv/
-data/
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
-.DS_Store
-*.csv
-*.parquet
-```
-
-Note that broad `*.csv` and `*.parquet` rules ignore these file types throughout the repository. If the team later wants to track a small example dataset, review the rules and make a deliberate exception.
-
-## Recommended branch-sync workflow
-
-When the working tree is clean and local work is committed:
-
-```bash
-git switch feature/deep-learning
-git fetch origin
-git merge origin/main
-git push origin feature/deep-learning
-```
-
-Merge `main` into the feature branch at sensible milestones. Do not push DL work directly to `main`.
-
----
-
-# 13. Model development plan
-
-The project has not yet confirmed a trained baseline model. The next modelling stage is to build and evaluate models in a controlled sequence.
-
-## 13.1 First baseline: TF-IDF + Logistic Regression
-
-A baseline training script was proposed:
+Script:
 
 ```text
 src/deep_learning/train_baseline.py
 ```
 
-It has **not been confirmed as created or executed**.
+### Model configuration
 
-Proposed pipeline:
+TF-IDF:
 
-1. Load `train.csv`, `validation.csv`, and `test.csv`.
-2. Convert ingredient text into numerical features using `TfidfVectorizer`.
-3. Use word unigrams and bigrams (`ngram_range=(1, 2)`) as an initial feature setup.
-4. Train `LogisticRegression`.
-5. Evaluate on validation and test partitions.
-6. Report accuracy, macro-F1, per-class precision/recall/F1, and confusion matrix.
+- Lowercase text.
+- Unigrams and bigrams.
+- Maximum features: 100,000.
+- Minimum document frequency: 2.
+- Sublinear term frequency enabled.
 
-Why start with this if the workstream is called Deep Learning?
-- It gives us a fast, understandable benchmark.
-- It shows whether ingredient text contains learnable signal.
-- It provides a reference point for judging whether CNNs, LSTMs, or transformers genuinely improve performance.
+Logistic Regression:
 
-The baseline is traditional machine learning, not a neural network. It is an important comparison model.
+- Maximum iterations: 1,000.
+- Random state: 42.
 
-## 13.2 Planned CNN experiment
+### Results
 
-A 1D Convolutional Neural Network (CNN) can learn local patterns across sequences of ingredient tokens. It is a planned neural-network experiment, not yet implemented or trained.
+| Metric   | Validation |   Test |
+| -------- | ---------: | -----: |
+| Accuracy |     82.58% | 82.01% |
+| Macro F1 |     0.8282 | 0.8188 |
 
-Possible high-level pipeline:
-- tokenize ingredient descriptions;
-- convert tokens to integer IDs;
-- use an embedding layer;
-- apply one-dimensional convolution and pooling;
-- classify into four NOVA classes.
+### Test classification report
 
-## 13.3 Planned LSTM experiment
+| NOVA group | Precision | Recall | F1-score | Support |
+| ---------- | --------: | -----: | -------: | ------: |
+| NOVA 1     |      0.86 |   0.94 |     0.90 |     383 |
+| NOVA 2     |      0.92 |   0.62 |     0.74 |     373 |
+| NOVA 3     |      0.64 |   0.84 |     0.72 |     365 |
+| NOVA 4     |      0.95 |   0.88 |     0.91 |     380 |
 
-An LSTM (Long Short-Term Memory network) processes token sequences and can learn sequential relationships across ingredient text. It is planned, not yet implemented or trained.
+### Confusion matrix
 
-Possible high-level pipeline:
-- tokenize text;
-- map tokens to IDs;
-- use embeddings;
-- process sequences with an LSTM;
-- use a classifier head for NOVA 1–4.
+Rows are actual classes; columns are predicted classes.
 
-## 13.4 Planned transformer experiment
+```text
+[[360,   4,  14,   5],
+ [ 16, 230, 124,   3],
+ [ 36,  13, 305,  11],
+ [  7,   2,  35, 336]]
+```
 
-A compact transformer-based text classifier may be evaluated after baseline and smaller neural models. Candidate models may include DistilBERT for English. For multilingual work, candidates include mBERT and XLM-RoBERTa.
+### Observations
 
-These are candidates only. Do not claim that any has been fine-tuned or evaluated yet.
+- Test accuracy was 82.01%.
+- NOVA 1 and NOVA 4 had stronger F1-scores.
+- NOVA 2 was frequently misclassified as NOVA 3.
+- Only 230 of 373 actual NOVA 2 products were correctly classified.
 
-## 13.5 Agreed model progression
-
-| Order | Model | Status |
-|---|---|---|
-| 1 | TF-IDF + Logistic Regression | Next; proposed, not yet run |
-| 2 | 1D CNN | Planned |
-| 3 | LSTM | Planned |
-| 4 | Transformer (e.g. compact English model) | Planned |
-| 5 | Multilingual transformer (mBERT/XLM-R) | Future expansion |
-
-Not every architecture must be used in the final mobile app. Compare performance, class-wise reliability, model size, inference speed, and device constraints before selecting a final model.
-
-## 13.6 Evaluation metrics
-
-Do not report accuracy alone.
-
-Use:
-- **Accuracy:** proportion of all predictions that are correct.
-- **Precision:** among predictions assigned to a class, how many are correct.
-- **Recall:** among true examples of a class, how many the model finds.
-- **Macro-F1:** F1 calculated per class and averaged equally across the four classes.
-- **Confusion matrix:** shows which classes are mistaken for which others.
-
-Because the current sample and test split are balanced artificially, balanced-test accuracy is useful for controlled comparison but does not represent real-world performance on the natural population. Later create/evaluate on a representative naturally distributed test set and report both types of results clearly.
+This model established the traditional ML baseline.
 
 ---
 
-# 14. Multilingual and India-focused future direction
+## 10.2 Experiment 2 — 1D CNN
 
-The user explicitly wants the project to expand beyond English and potentially specialize for India.
+**Category:** Deep Learning  
+**Framework:** PyTorch  
+**Device:** Apple MPS  
+**Status:** Completed
 
-Agreed strategy:
+Script:
 
-### Phase A — English baseline first
-- Keep current initial training English-filtered.
-- Establish baseline performance and evaluation.
-- Avoid adding multilingual complexity before the first reproducible experiment.
+```text
+src/deep_learning/train_cnn.py
+```
 
-### Phase B — multilingual expansion
+### Architecture
+
+1. Ingredient text tokenization.
+2. Vocabulary construction.
+3. Embedding layer.
+4. Three 1D convolution branches.
+5. ReLU activation.
+6. Global max pooling.
+7. Dropout.
+8. Fully connected output layer with four NOVA classes.
+
+### Configuration
+
+| Setting                 |   Value |
+| ----------------------- | ------: |
+| Vocabulary size         |   3,695 |
+| Maximum sequence length |     256 |
+| Embedding dimension     |     128 |
+| Convolution channels    |     128 |
+| Kernel sizes            | 3, 5, 7 |
+| Dropout                 |     0.4 |
+| Batch size              |      64 |
+| Learning rate           |   0.001 |
+| Optimizer               |   AdamW |
+| Maximum epochs          |      12 |
+| Early stopping patience |       3 |
+
+### Results
+
+| Metric   | Validation |   Test |
+| -------- | ---------: | -----: |
+| Accuracy |     89.06% | 88.94% |
+| Macro F1 |     0.8904 | 0.8889 |
+
+### Test classification report
+
+| NOVA group | Precision | Recall | F1-score | Support |
+| ---------- | --------: | -----: | -------: | ------: |
+| NOVA 1     |      0.89 |   0.87 |     0.88 |     383 |
+| NOVA 2     |      0.87 |   0.91 |     0.89 |     373 |
+| NOVA 3     |      0.86 |   0.84 |     0.85 |     365 |
+| NOVA 4     |      0.94 |   0.93 |     0.94 |     380 |
+
+### Confusion matrix
+
+```text
+[[335,  28,  14,   6],
+ [ 18, 340,  12,   3],
+ [ 22,  23, 305,  15],
+ [  2,   1,  22, 355]]
+```
+
+### Observations
+
+- Test accuracy was 88.94%.
+- The CNN correctly classified 1,335 out of 1,501 products.
+- NOVA 4 achieved the strongest F1-score of 0.94.
+- NOVA 3 remained the most challenging class.
+- Training accuracy reached 97.45%, suggesting some overfitting compared with validation performance.
+- Early stopping selected the best validation checkpoint.
+
+The CNN outperformed the Logistic Regression baseline.
+
+---
+
+## 10.3 Experiment 3 — Bidirectional LSTM
+
+**Category:** Deep Learning  
+**Framework:** PyTorch  
+**Device:** Apple MPS  
+**Status:** Completed
+
+Script:
+
+```text
+src/deep_learning/train_lstm.py
+```
+
+### Architecture
+
+1. Ingredient text tokenization.
+2. Vocabulary construction.
+3. Embedding layer.
+4. Forward LSTM.
+5. Backward LSTM.
+6. Combination of forward and backward representations.
+7. Dropout.
+8. Fully connected output layer with four classes.
+
+The bidirectional architecture processes token sequences in both directions, allowing it to learn context from preceding and following words.
+
+### Configuration
+
+| Setting                   | Value |
+| ------------------------- | ----: |
+| Vocabulary size           | 3,695 |
+| Maximum sequence length   |   256 |
+| Embedding dimension       |   128 |
+| Hidden size per direction |   128 |
+| Dropout                   |   0.4 |
+| Batch size                |    32 |
+| Learning rate             | 0.001 |
+| Optimizer                 | AdamW |
+| Maximum epochs            |    12 |
+| Early stopping patience   |     3 |
+
+### Results
+
+| Metric   | Validation |   Test |
+| -------- | ---------: | -----: |
+| Accuracy |     87.64% | 89.81% |
+| Macro F1 |     0.8761 | 0.8977 |
+
+### Test classification report
+
+| NOVA group | Precision | Recall | F1-score | Support |
+| ---------- | --------: | -----: | -------: | ------: |
+| NOVA 1     |      0.89 |   0.93 |     0.91 |     383 |
+| NOVA 2     |      0.94 |   0.89 |     0.91 |     373 |
+| NOVA 3     |      0.83 |   0.84 |     0.84 |     365 |
+| NOVA 4     |      0.94 |   0.92 |     0.93 |     380 |
+
+### Confusion matrix
+
+```text
+[[358,   5,  16,   4],
+ [ 19, 333,  20,   1],
+ [ 23,  17, 307,  18],
+ [  3,   0,  27, 350]]
+```
+
+### Observations
+
+- Test accuracy was 89.81%.
+- The LSTM correctly classified 1,348 out of 1,501 products.
+- NOVA 1 and NOVA 2 both achieved F1-scores of 0.91.
+- NOVA 4 achieved an F1-score of 0.93.
+- NOVA 3 remained the most challenging class, with an F1-score of 0.84.
+- Training accuracy reached 97.89%, indicating a gap between training and validation performance.
+
+The LSTM outperformed both the baseline and CNN on the test split.
+
+---
+
+## 10.4 Experiment 4 — DistilBERT Transformer
+
+**Category:** Deep Learning  
+**Framework:** PyTorch and Hugging Face Transformers  
+**Device:** Apple MPS  
+**Status:** Completed
+
+Script:
+
+```text
+src/deep_learning/train_transformer.py
+```
+
+Saved model directory:
+
+```text
+data/deep_learning/distilbert_food_nova/
+```
+
+### Model architecture
+
+Pretrained model:
+
+```text
+distilbert/distilbert-base-uncased
+```
+
+DistilBERT is a smaller pretrained Transformer derived from BERT.
+
+The model uses self-attention to learn contextual relationships between tokens in ingredient descriptions.
+
+The pretrained language model was fine-tuned for four-class NOVA classification.
+
+Architecture:
+
+1. DistilBERT tokenizer.
+2. Token IDs and attention masks.
+3. Pretrained DistilBERT encoder.
+4. Classification head.
+5. Four output classes representing NOVA 1–4.
+
+The classification head was initialized for the new task and trained during fine-tuning.
+
+### Configuration
+
+| Setting                     |                   Value |
+| --------------------------- | ----------------------: |
+| Pretrained model            | DistilBERT base uncased |
+| Maximum token length        |                     256 |
+| Batch size                  |                       8 |
+| Gradient accumulation steps |                       2 |
+| Effective batch size        |                      16 |
+| Learning rate               |          0.00002 (2e-5) |
+| Optimizer                   |                   AdamW |
+| Weight decay                |                    0.01 |
+| Maximum epochs              |                       3 |
+| Early stopping patience     |                       2 |
+| Random seed                 |                      42 |
+
+### Training progress
+
+| Epoch | Training accuracy | Training macro F1 | Validation accuracy | Validation macro F1 |
+| ----- | ----------------: | ----------------: | ------------------: | ------------------: |
+| 1     |            80.01% |            0.8003 |              90.07% |              0.9003 |
+| 2     |            90.71% |            0.9072 |              90.75% |              0.9071 |
+| 3     |            93.10% |            0.9312 |              90.75% |              0.9078 |
+
+The third epoch achieved the highest validation macro F1-score, and its checkpoint was saved for final testing.
+
+Training accuracy being lower than validation accuracy in early epochs is possible because dropout is active during training and disabled during evaluation. Training metrics are also collected while the model weights are changing across batches.
+
+### Final results
+
+| Metric   | Validation |   Test |
+| -------- | ---------: | -----: |
+| Accuracy |     90.75% | 91.34% |
+| Macro F1 |     0.9078 | 0.9132 |
+
+### Test classification report
+
+| NOVA group | Precision | Recall | F1-score | Support |
+| ---------- | --------: | -----: | -------: | ------: |
+| NOVA 1     |      0.92 |   0.94 |     0.93 |     383 |
+| NOVA 2     |      0.87 |   0.93 |     0.90 |     373 |
+| NOVA 3     |      0.87 |   0.85 |     0.86 |     365 |
+| NOVA 4     |      0.99 |   0.92 |     0.96 |     380 |
+
+### Confusion matrix
+
+```text
+[[360,  15,   8,   0],
+ [  9, 348,  16,   0],
+ [ 19,  32, 312,   2],
+ [  2,   6,  21, 351]]
+```
+
+### Observations
+
+- Test accuracy was 91.34%.
+- Test macro F1 was 0.9132.
+- The model correctly classified 1,371 out of 1,501 products.
+- NOVA 4 achieved precision of 0.99 and F1-score of 0.96.
+- NOVA 1 achieved an F1-score of 0.93.
+- NOVA 2 achieved an F1-score of 0.90.
+- NOVA 3 remained the most challenging class, with an F1-score of 0.86.
+
+DistilBERT achieved the strongest overall performance among the four experiments.
+
+---
+
+# 11. Final Model Comparison
+
+All four models were evaluated using the same test set of 1,501 products.
+
+| Model                        | Category          | Test accuracy | Test macro F1 |
+| ---------------------------- | ----------------- | ------------: | ------------: |
+| TF-IDF + Logistic Regression | Traditional ML    |        82.01% |        0.8188 |
+| 1D CNN                       | Deep Learning     |        88.94% |        0.8889 |
+| Bidirectional LSTM           | Deep Learning     |        89.81% |        0.8977 |
+| **DistilBERT**               | **Deep Learning** |    **91.34%** |    **0.9132** |
+
+## Model ranking
+
+1. **DistilBERT:** 91.34% test accuracy.
+2. **Bidirectional LSTM:** 89.81% test accuracy.
+3. **1D CNN:** 88.94% test accuracy.
+4. **TF-IDF + Logistic Regression:** 82.01% test accuracy.
+
+DistilBERT improved test accuracy by:
+
+- 9.33 percentage points over Logistic Regression.
+- 2.40 percentage points over CNN.
+- 1.53 percentage points over LSTM.
+
+## Current model selection
+
+**DistilBERT is the leading model candidate based on test accuracy and macro F1.**
+
+However, this is not yet a final mobile deployment decision.
+
+Before selecting a production model, evaluate:
+
+- Model size.
+- Inference time.
+- Memory requirements.
+- Android compatibility.
+- Model conversion options.
+- Performance on naturally distributed and external data.
+
+A slightly less accurate model may be more practical for on-device inference.
+
+---
+
+# 12. Current Model Files and Inference Readiness
+
+The training scripts save the following artifacts locally:
+
+```text
+data/deep_learning/
+├── cnn_best.pt
+├── cnn_vocab.json
+├── lstm_best.pt
+├── lstm_vocab.json
+└── distilbert_food_nova/
+```
+
+The DistilBERT directory contains the saved model weights/configuration and tokenizer files produced by Hugging Face's `save_pretrained()` method.
+
+The model has been saved successfully, but a standalone production inference interface has not yet been verified.
+
+Next steps:
+
+1. Build a reusable prediction script.
+2. Load the saved tokenizer and model.
+3. Accept ingredient text as input.
+4. Return the predicted NOVA class.
+5. Test on examples not used during training.
+6. Measure inference latency and memory use.
+7. Investigate model conversion and Android integration.
+
+Do not claim the model is already integrated into the Android application.
+
+---
+
+# 13. Important Evaluation Limitations
+
+The current model results are promising, but several limitations must be addressed before making real-world performance claims.
+
+## 13.1 Balanced test distribution
+
+The 10,000-product sample was deliberately balanced with 2,500 examples per NOVA class.
+
+The full eligible English dataset has a very different distribution:
+
+- NOVA 1: 9.92%.
+- NOVA 2: 1.61%.
+- NOVA 3: 16.87%.
+- NOVA 4: 71.61%.
+
+The current 91.34% DistilBERT test accuracy therefore describes performance on a balanced test set, not the natural product population.
+
+A naturally distributed evaluation set should be created and evaluated separately.
+
+## 13.2 Dataset label quality
+
+The duplicate investigation found 73 normalized ingredient descriptions with conflicting NOVA labels.
+
+This suggests that some labels may be inconsistent or may depend on product context not present in ingredient text.
+
+The model learns from the supplied labels and cannot resolve missing manufacturing information automatically.
+
+## 13.3 Ingredient-text limitations
+
+Ingredient descriptions may include:
+
+- OCR errors.
+- Manufacturer information.
+- Storage instructions.
+- Nutrition information.
+- Multiple product varieties.
+- Multilingual text.
+- Missing or incomplete ingredients.
+
+These can affect model performance.
+
+## 13.4 Long-text association
+
+Approximately 99.8% of descriptions longer than 1,000 characters in the full eligible English dataset belonged to NOVA 4.
+
+The model could potentially learn dataset-specific patterns associated with long descriptions.
+
+Further experiments should investigate whether text length or irrelevant label content influences predictions.
+
+## 13.5 Language limitation
+
+All four current model experiments used the English-filtered balanced sample.
+
+They do not establish performance on Hindi, other Indian languages or multilingual product descriptions.
+
+---
+
+# 14. Multilingual and India-Focused Future Direction
+
+The project should retain its longer-term multilingual and India-focused goals.
+
+## Phase A — English baseline
+
+Completed:
+
+- English-language dataset preparation.
+- Balanced sample creation.
+- Dataset splitting.
+- Baseline and neural model experiments.
+- Initial model comparison.
+
+## Phase B — Multilingual expansion
+
+Future tasks:
+
 - Preserve original language metadata.
-- Inspect actual text language quality rather than assuming `lang == "en"` guarantees English text.
-- Evaluate multilingual model candidates such as mBERT or XLM-R.
-- Report performance separately by language as well as overall.
-- Do not claim support for a language until tested on suitable labelled data.
+- Inspect actual text language quality.
+- Evaluate multilingual model candidates such as mBERT and XLM-R.
+- Report performance separately by language.
+- Avoid claiming support for languages that have not been tested.
 
-### Phase C — India-focused evaluation and specialization
-- Build/obtain a suitable labelled collection of Indian food products.
+## Phase C — India-focused evaluation
+
+Future tasks:
+
+- Obtain a suitable labelled collection of Indian food products.
 - Include Indian packaged foods and ingredient terminology.
-- Consider Hindi and English first, then regional languages where sufficient quality data is available.
-- Evaluate separately on Indian products; do not assume performance transfers from international products.
-- Continue to classify using NOVA methodology, not assumptions based on cuisine, brand, or ingredient names.
+- Evaluate Hindi and English first.
+- Add regional languages where sufficient labelled data is available.
+- Evaluate separately on Indian products.
+- Continue to use NOVA classification criteria rather than assumptions based on cuisine or ingredient names.
 
-**Current decision:** Do not change the first English baseline to multilingual right now. Preserve the broader future direction in the pipeline design and documentation.
-
----
-
-# 15. Current status: completed, in progress, and not yet done
-
-## Completed and reported
-
-- [x] Inspected source Parquet structure and relevant columns.
-- [x] Confirmed the source has approximately 4.9 million rows.
-- [x] Built memory-conscious PyArrow batch processing.
-- [x] Extracted ingredient text recursively from structured JSON.
-- [x] Created a balanced 10,000-row English sample (2,500 per NOVA class).
-- [x] Checked missing values, duplicate barcodes, repeated descriptions, and text lengths.
-- [x] Investigated repeated ingredient descriptions and conflicting NOVA labels.
-- [x] Created train/validation/test partitions with normalized-text group isolation.
-- [x] Verified zero normalized-description overlap between partitions in the reported split.
-- [x] Analyzed text quality in the sample.
-- [x] Scanned the full dataset for English eligible counts and NOVA distribution.
-- [x] Investigated the longest descriptions.
-- [x] Created a reproducible 30-record long-description review sample.
-- [x] Counted long descriptions by NOVA group across the full eligible English dataset.
-- [x] Discussed Apple MPS support and confirmed it was available in the earlier environment check.
-- [x] Agreed on an English-first but multilingual/India-aware long-term direction.
-- [x] Agreed that CNN, LSTM, and transformer experiments belong in the planned DL workstream.
-
-## In progress / needs Git verification
-
-- [ ] Verify whether the three long-description scripts were committed and pushed.
-- [ ] Verify whether this revised handover has been saved into the repository and pushed.
-- [ ] Check fresh Git status and branch state before the next Git operation.
-
-## Not yet completed
-
-- [ ] Create and run `train_baseline.py`.
-- [ ] Interpret baseline validation and test results.
-- [ ] Create a representative natural-distribution evaluation set.
-- [ ] Decide and test defensible text-cleaning rules.
-- [ ] Implement and train a CNN.
-- [ ] Implement and train an LSTM.
-- [ ] Evaluate a transformer model.
-- [ ] Compare model metrics and resource requirements.
-- [ ] Verify BDA integrated Parquet availability/schema and decide whether it should become a future DL source.
-- [ ] Conduct multilingual and India-focused data collection/evaluation.
-- [ ] Integrate the selected model with the mobile application.
+These are future directions, not completed experiments.
 
 ---
 
-# 16. Immediate next steps
+# 15. Git Status and Workflow
 
-The exact next steps should be done in this order.
+The user previously reported a clean working tree on `feature/deep-learning` before the CNN work.
 
-## Step 1 — Git checkpoint
-In **VS Code → Integrated Terminal**:
+The user subsequently created and ran the CNN, LSTM and Transformer scripts and updated the experiment results document.
+
+However, the latest Git status and commit history have not been provided after all four experiments.
+
+**Therefore, the current remote commit status of these latest files is unknown.**
+
+## Required Git verification
+
+In VS Code → Integrated Terminal:
 
 ```bash
 git status
 ```
 
-Review the output. If the three long-text scripts are still uncommitted, stage only those scripts. Also stage this revised handover after it has been placed in the intended repository path, for example:
+Then inspect recent commits:
+
+```bash
+git log -5 --oneline
+```
+
+Stage only intended code and documentation files.
+
+Expected relevant files include:
 
 ```text
+src/deep_learning/train_cnn.py
+src/deep_learning/train_lstm.py
+src/deep_learning/train_transformer.py
+docs/MODEL_EXPERIMENT_RESULTS.md
 docs/DEEP_LEARNING_PROJECT_HANDOVER.md
 ```
 
-Do not stage generated CSV or Parquet files.
+The baseline script may already be tracked from earlier work; verify rather than assuming.
 
-## Step 2 — Build the first baseline
-Create:
+Do not commit:
 
-```text
-src/deep_learning/train_baseline.py
-```
+- `.venv/`
+- `data/`
+- Generated CSV files.
+- Parquet files.
+- Large model checkpoints.
+- Local cache files.
+- `__pycache__/`
 
-Use the existing `train.csv`, `validation.csv`, and `test.csv`. Start with TF-IDF + Logistic Regression. Do not regenerate the splits unless the data or split logic changes.
+The saved model files are expected to remain local unless the team explicitly chooses a model-artifact sharing strategy.
 
-## Step 3 — Run and inspect results
-In **VS Code → Integrated Terminal**:
+## Git workflow
 
 ```bash
-python src/deep_learning/train_baseline.py
+git status
 ```
 
-Share the complete output and review:
-- accuracy;
-- macro-F1;
-- per-class precision, recall, and F1;
-- confusion matrix.
+Stage specific files:
 
-Do not assume a target accuracy in advance. Interpret the model's strengths and weaknesses based on the output.
+```bash
+git add src/deep_learning/train_transformer.py
+git add docs/MODEL_EXPERIMENT_RESULTS.md
+git add docs/DEEP_LEARNING_PROJECT_HANDOVER.md
+```
 
-## Step 4 — Record and commit the baseline milestone
-Once the script runs and its results are understood:
-- document the experiment and results;
-- stage the Python script and relevant documentation only;
-- commit and push to `feature/deep-learning`.
+Add other scripts only if they are still untracked or modified.
 
-After the baseline is stable, proceed to a small CNN experiment, then LSTM, then a transformer comparison.
+Commit:
+
+```bash
+git commit -m "Complete deep learning model experiments and documentation"
+```
+
+Push:
+
+```bash
+git push origin feature/deep-learning
+```
+
+Verify:
+
+```bash
+git status
+```
+
+Do not assume the push succeeded until Git confirms it.
 
 ---
 
-# 17. Guidance for the next assistant / collaborator
+# 16. Current Project Status
 
-The user is a beginner in deep learning and wants to understand the project, not blindly copy code. Use clear, patient explanations without being patronizing.
+## Completed
+
+- [x] Inspected the source Parquet structure.
+- [x] Built memory-conscious PyArrow batch processing.
+- [x] Extracted ingredient text recursively.
+- [x] Created a balanced 10,000-product English sample.
+- [x] Investigated missing values and duplicate barcodes.
+- [x] Investigated repeated descriptions and conflicting NOVA labels.
+- [x] Created train/validation/test splits.
+- [x] Verified zero normalized ingredient-description overlap between partitions in the reported split.
+- [x] Analyzed sample text quality.
+- [x] Scanned the full English dataset.
+- [x] Investigated long descriptions.
+- [x] Created a reproducible long-description review sample.
+- [x] Implemented TF-IDF + Logistic Regression baseline.
+- [x] Trained and evaluated 1D CNN.
+- [x] Trained and evaluated Bidirectional LSTM.
+- [x] Fine-tuned and evaluated DistilBERT.
+- [x] Compared all four models.
+- [x] Identified DistilBERT as the leading model based on current test metrics.
+
+## Remaining work
+
+- [ ] Verify Git status and push all intended scripts and documentation.
+- [ ] Verify the current handover and experiment-results documents are saved in the repository.
+- [ ] Build a reusable inference/prediction script.
+- [ ] Test predictions on new ingredient descriptions.
+- [ ] Measure inference speed and model size.
+- [ ] Evaluate on a naturally distributed dataset.
+- [ ] Investigate the influence of long descriptions and dataset-specific patterns.
+- [ ] Verify the BDA integrated Parquet output and schema.
+- [ ] Decide on a model deployment strategy.
+- [ ] Export or convert the selected model if required.
+- [ ] Integrate the model with the Android application.
+- [ ] Conduct multilingual evaluation.
+- [ ] Conduct India-focused evaluation using suitable labelled data.
+
+---
+
+# 17. Immediate Next Steps
+
+The recommended order is:
+
+## Step 1 — Save and verify documentation
+
+Ensure these documents are saved:
+
+```text
+docs/MODEL_EXPERIMENT_RESULTS.md
+docs/DEEP_LEARNING_PROJECT_HANDOVER.md
+```
+
+The experiment-results document should contain all four experiments and their metrics.
+
+## Step 2 — Verify Git
+
+Run:
+
+```bash
+git status
+git log -5 --oneline
+```
+
+Review the results before staging or committing anything.
+
+## Step 3 — Build the prediction interface
+
+Create a reusable inference script that:
+
+- Loads the saved DistilBERT model.
+- Loads the matching tokenizer.
+- Accepts ingredient text.
+- Returns one predicted NOVA group.
+- Can later be called by an API or application layer.
+
+## Step 4 — Test and benchmark
+
+Evaluate:
+
+- Prediction correctness on additional examples.
+- Inference time.
+- Model storage size.
+- Memory use.
+- Behaviour on empty, short and long ingredient descriptions.
+
+## Step 5 — Prepare Android integration
+
+Determine whether the model will run:
+
+- Directly on the Android device after suitable conversion, or
+- Through a backend inference API.
+
+Do not assume the final approach until deployment requirements and app architecture are verified.
+
+## Step 6 — Natural-distribution and multilingual evaluation
+
+Create a representative evaluation set and assess performance under the natural class distribution.
+
+Later, expand to multilingual and India-focused datasets.
+
+---
+
+# 18. Guidance for the Next Assistant or Collaborator
+
+The user is a beginner in deep learning and prefers clear, step-by-step explanations.
 
 Preferred working style:
 
 1. Explain the immediate goal and why it matters.
-2. Give a coherent sequence of steps, but pause at meaningful checkpoints when the next action depends on terminal output.
-3. Label locations clearly:
-   - **VS Code → Editor** for creating or editing code.
-   - **VS Code → Explorer** for locating files.
-   - **VS Code → Integrated Terminal** for commands.
-4. Explain technical terms in simple language.
-5. Do not make the user repeat facts already present in this handover.
-6. Do not create extra scripts unnecessarily; reuse existing scripts when practical.
-7. Clearly distinguish completed work from proposed future work.
-8. Do not claim the model has been trained; baseline training has not yet been confirmed.
-9. Do not promise a particular accuracy such as 80–90%.
-10. Do not automatically delete short descriptions, duplicate descriptions, conflicting labels, or long descriptions.
-11. Preserve language metadata and the future multilingual/India direction.
-12. Verify the BDA integrated dataset rather than assuming it exists locally.
-13. Track Git commits carefully and never assume a push succeeded without confirmation.
-14. Keep generated datasets, `.venv`, and large data files out of Git.
+2. Give clear instructions for VS Code Editor, Explorer and Integrated Terminal.
+3. Explain technical terms in simple language.
+4. Do not make the user repeat facts already documented here.
+5. Avoid creating unnecessary scripts.
+6. Distinguish completed work from planned work.
+7. Do not claim Android integration is complete.
+8. Do not promise a particular accuracy.
+9. Do not automatically delete short, duplicate, conflicting or long descriptions.
+10. Preserve the multilingual and India-focused direction.
+11. Verify BDA integration outputs rather than assuming they exist.
+12. Check Git status before staging or committing.
+13. Keep generated datasets, model checkpoints and `.venv` out of Git unless explicitly agreed.
+14. Explain the limitations of the balanced test set when discussing model performance.
 
 ## Exact stopping point
 
-The user has completed the dataset investigation and is ready to begin model development. The last major decision was to proceed with:
+The four planned model experiments have been completed.
 
-1. TF-IDF + Logistic Regression baseline;
-2. CNN;
-3. LSTM;
-4. Transformer;
-5. multilingual transformer evaluation later, with an India-focused direction.
+Current test leaderboard:
 
-The baseline script code was provided in the conversation, but the user has not confirmed creating or running `train_baseline.py`.
+| Model               | Test accuracy | Test macro F1 |
+| ------------------- | ------------: | ------------: |
+| Logistic Regression |        82.01% |        0.8188 |
+| 1D CNN              |        88.94% |        0.8889 |
+| Bidirectional LSTM  |        89.81% |        0.8977 |
+| **DistilBERT**      |    **91.34%** |    **0.9132** |
 
-**Start by checking Git status / saving the revised handover, then continue with creation and execution of the baseline script.**
+DistilBERT is the leading candidate based on the current balanced test set.
+
+**The immediate next task is to verify Git and documentation, then build and test a reusable DistilBERT inference interface. After that, focus on deployment, natural-distribution evaluation and Android integration.**
+
+---
+
+**End of Deep Learning Handover**

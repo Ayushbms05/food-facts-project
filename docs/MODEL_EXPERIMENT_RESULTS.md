@@ -206,8 +206,6 @@ However, these results are based on the current balanced English-language datase
 | 3          | LSTM                         | Deep Learning  | Pending   |
 | 4          | Transformer                  | Deep Learning  | Pending   |
 
-_Future experiment results will be added to this document after each model has been trained and evaluated._
-
 # Experiment 3: Bidirectional LSTM
 
 ## 1. Experiment Information
@@ -331,4 +329,137 @@ The results indicate that sequential processing of ingredient text can be useful
 | 3          | Bidirectional LSTM           | Deep Learning  | Completed |
 | 4          | Transformer                  | Deep Learning  | Pending   |
 
-_Future experiment results will be added to this document after each model has been trained and evaluated._
+# Experiment 4: DistilBERT Transformer
+
+## 1. Experiment Information
+
+- **Category:** Deep Learning (DL)
+- **Model:** DistilBERT (Transformer)
+- **Framework:** PyTorch and Hugging Face Transformers
+- **Status:** Completed
+- **Device:** Apple MPS (Apple Silicon GPU)
+- **Purpose:** Use pretrained language representations and self-attention to understand contextual relationships in ingredient text.
+- **Prediction task:** Predict a food product's NOVA group (1, 2, 3 or 4) using its ingredient text.
+
+## 2. Dataset Information
+
+The experiment used the same prepared English-language dataset and the same training, validation and testing splits as the previous experiments.
+
+| Dataset    | Number of products |
+| ---------- | -----------------: |
+| Training   |              7,018 |
+| Validation |              1,481 |
+| Testing    |              1,501 |
+| **Total**  |         **10,000** |
+
+## 3. Model Configuration
+
+**Pretrained Transformer:**
+
+- Pretrained model: `distilbert-base-uncased`
+- Uses pretrained DistilBERT language representations.
+- Fine-tuned for four-class NOVA classification.
+- Maximum token length: 256.
+- Classification output: 4 classes.
+
+**Training Configuration:**
+
+- Optimizer: AdamW.
+- Learning rate: 0.00002 (2e-5).
+- Batch size: 8.
+- Gradient accumulation steps: 2.
+- Effective batch size: 16.
+- Maximum epochs: 3.
+- Random seed: 42.
+- Best model selected using validation macro F1-score.
+- Early stopping patience: 2.
+
+## 4. Overall Performance
+
+| Metric         | Validation |   Test |
+| -------------- | ---------: | -----: |
+| Accuracy       |     90.75% | 91.34% |
+| Macro F1-score |     0.9078 | 0.9132 |
+
+**Training progress:**
+
+| Epoch | Training Accuracy | Validation Accuracy | Validation Macro F1 |
+| ----- | ----------------: | ------------------: | ------------------: |
+| 1     |            80.01% |              90.07% |              0.9003 |
+| 2     |            90.71% |              90.75% |              0.9071 |
+| 3     |            93.10% |              90.75% |              0.9078 |
+
+The third epoch achieved the best validation macro F1-score, so its checkpoint was selected for final testing.
+
+## 5. Test Classification Report
+
+| NOVA Group | Precision | Recall | F1-score | Support |
+| ---------- | --------: | -----: | -------: | ------: |
+| NOVA 1     |      0.92 |   0.94 |     0.93 |     383 |
+| NOVA 2     |      0.87 |   0.93 |     0.90 |     373 |
+| NOVA 3     |      0.87 |   0.85 |     0.86 |     365 |
+| NOVA 4     |      0.99 |   0.92 |     0.96 |     380 |
+
+## 6. Confusion Matrix
+
+Rows represent actual NOVA groups, while columns represent predicted NOVA groups.
+
+| Actual / Predicted | NOVA 1 | NOVA 2 | NOVA 3 | NOVA 4 |
+| ------------------ | -----: | -----: | -----: | -----: |
+| NOVA 1             |    360 |     15 |      8 |      0 |
+| NOVA 2             |      9 |    348 |     16 |      0 |
+| NOVA 3             |     19 |     32 |    312 |      2 |
+| NOVA 4             |      2 |      6 |     21 |    351 |
+
+## 7. Key Observations
+
+1. The model achieved **91.34% test accuracy**.
+2. It achieved a test macro F1-score of **0.9132**.
+3. NOVA 4 achieved the highest precision of 0.99 and an F1-score of 0.96.
+4. NOVA 1 achieved an F1-score of 0.93.
+5. NOVA 2 achieved an F1-score of 0.90.
+6. NOVA 3 remained the most challenging class, with an F1-score of 0.86.
+7. The model correctly classified 1,371 out of 1,501 test products.
+8. The best validation macro F1-score was achieved in Epoch 3.
+
+## 8. Conclusion
+
+DistilBERT achieved the best performance among all four models evaluated in this project.
+
+It achieved **91.34% test accuracy** and a **0.9132 macro F1-score**, outperforming TF-IDF + Logistic Regression, 1D CNN and Bidirectional LSTM on the same test split.
+
+The results demonstrate the potential of pretrained Transformer models and contextual language representations for ingredient-text-based NOVA classification.
+
+However, these results are based on a balanced English-language dataset. Further evaluation using naturally distributed and external product data is required before making claims about real-world performance.
+
+---
+
+# 5. Final Model Performance Comparison
+
+| Model                        | Category          | Test Accuracy | Test Macro F1 |
+| ---------------------------- | ----------------- | ------------: | ------------: |
+| TF-IDF + Logistic Regression | Traditional ML    |        82.01% |        0.8188 |
+| 1D CNN                       | Deep Learning     |        88.94% |        0.8889 |
+| Bidirectional LSTM           | Deep Learning     |        89.81% |        0.8977 |
+| **DistilBERT**               | **Deep Learning** |    **91.34%** |    **0.9132** |
+
+## Final Model Selection
+
+Based on test accuracy and macro F1-score, DistilBERT is the best-performing model in the current experiments.
+
+It is selected as the leading candidate for further evaluation and application integration.
+
+Before final deployment, model size, inference speed, memory requirements and Android compatibility must also be evaluated.
+
+---
+
+# Future Experiments
+
+| Experiment | Model                        | Category       | Status    |
+| ---------- | ---------------------------- | -------------- | --------- |
+| 1          | TF-IDF + Logistic Regression | Traditional ML | Completed |
+| 2          | 1D CNN                       | Deep Learning  | Completed |
+| 3          | Bidirectional LSTM           | Deep Learning  | Completed |
+| 4          | DistilBERT Transformer       | Deep Learning  | Completed |
+
+_All four planned model experiments have been completed. Further work will focus on model evaluation, optimization, deployment and application integration._
