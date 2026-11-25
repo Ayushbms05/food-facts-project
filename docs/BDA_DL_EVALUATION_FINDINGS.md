@@ -1,6 +1,6 @@
 # Food Facts — BDA + DL Integration and Evaluation Findings
 
-**Living technical report | Revision 0.1 | 25 November 2026 | Completed through I6.2**
+**Living technical report | Revision 0.3 | 25 November 2026 | Completed through I6.3b**
 
 Repository: `Ayushbms05/food-facts-project`  
 Working branch: `feature/bda-dl-integration`  
@@ -10,9 +10,13 @@ Scope: integration of Member 1's BDA pipeline and Member 2's trained NOVA classi
 
 The BDA and DL source branches have been merged into a separate integration branch and pushed to GitHub. The existing DistilBERT checkpoint loads and predicts locally on Apple MPS. A reproduced 10-product smoke test returned 10/10 correct predictions; this is a functional test, not a new generalization accuracy measurement.
 
-Two sequential audits screened the BDA-curated OFF–USDA intersection and the India-tagged OFF dataset for previously used product identifiers and ingredient descriptions. The second audit also recovered the original structured ingredient representation used for DL training and checked source-record consistency and English metadata. The final pools contain **252,365 curated products**, **5,782 India-tagged products**, and **252,101 eligible OFF–USDA pairs** (a subset of the curated pool). No model predictions on these new pools or fine-tuning have been performed yet.
+Two sequential audits screened the BDA-curated OFF–USDA intersection and the India-tagged OFF dataset for previously used product identifiers and ingredient descriptions. The second audit also recovered the original structured ingredient representation used for DL training and checked source-record consistency and English metadata. The final pools contain **252,365 curated products**, **5,782 India-tagged products**, and **252,101 eligible OFF–USDA pairs** (a subset of the curated pool). At I6.2, no model predictions or fine-tuning had been performed.
 
-The main finding is that screening by raw and cleaned ingredient text alone was insufficient: the structured audit found 28,236 further curated candidates whose structured text matched an earlier DL example. The resulting class imbalance, particularly the 909 curated and 67 India NOVA 2 candidates, must guide evaluation design.
+An audit finding is that screening by raw and cleaned ingredient text alone was insufficient: the structured audit found 28,236 further curated candidates whose structured text matched an earlier DL example. The resulting class imbalance, particularly the 909 curated and 67 India NOVA 2 candidates, must guide evaluation design.
+
+I6.3a subsequently grouped the screened candidates by connected exact normalized OFF text and code, removed 364 conflicting-label groups, and froze three disjoint samples: **2,000 balanced curated**, **10,000 natural curated**, and **5,311 India-tagged** representatives. These are preparation findings, not model-performance results.
+
+I6.3b evaluated all 2,000 balanced curated products in three ingredient representations with the unchanged checkpoint. Structured text achieved **89.60% accuracy / 0.8966 macro F1**, original OFF text **88.40% / 0.8847**, and comparison-cleaned text **60.95% / 0.5567**. The large degradation after comparison cleaning motivates separate BDA matching and DL inference text representations. Structured text is the provisional preferred format when available; raw text remains the practical alternative. I6.3c will test both on the separate frozen natural cohort. No training or weight tuning has occurred.
 
 ## 1. Research objectives and reference baseline
 
@@ -254,7 +258,7 @@ Candidate CSV columns: `cohort`, `code`, `normalized_code`, `nova_group`, `produ
 - Both BDA and DL draw from OFF; NOVA values are recorded OFF labels, not independently adjudicated truth. This is a screened same-source evaluation rather than independent external validation.
 - Existing barcode normalization is conservative and is not itself checksum validation. Short OFF identifiers may not be globally valid GTINs.
 - Filtering disproportionately reduces some NOVA classes and changes the distribution. Natural sampling from the retained pool is representative of that pool only, not all retail foods.
-- Same normalized text may remain repeated within a candidate pool or across new cohorts. Check duplicates and conflicting labels before final sampling; report exact rules and remaining overlap. Do not aggregate overlapping cohorts as independent samples.
+- I6.3a resolved known exact normalized OFF text/code group overlap across the frozen samples, as described in Section 10. Near duplicates and USDA text overlap remain possible. Do not aggregate cohorts as independently representative retail samples.
 - India tags do not establish country of manufacture or represent all Indian retail products. Only the selected OFF data and language scope are being evaluated.
 - USDA pairs have no independent NOVA reference in this workflow; report prediction agreement, not USDA accuracy against an assumed transferred OFF label.
 - Benchmark latency is not backend latency; model Softmax scores are not guarantees of correctness.
@@ -264,16 +268,16 @@ Candidate CSV columns: `cohort`, `code`, `normalized_code`, `nova_group`, `produ
 
 | Step | Planned experiment | Status |
 |---|---|---|
-| I6.3a | Audit duplicate ingredient keys and conflicting labels within/between retained pools; freeze reproducible sample manifests | Next |
-| I6.3b | Balanced curated evaluation, same products across raw, cleaned and structured OFF inputs | Pending |
-| I6.3c | Natural-distribution curated evaluation from screened population | Pending |
+| I6.3a | Audit duplicate ingredient keys and conflicting labels within/between retained pools; freeze reproducible sample manifests | Completed (Section 10) |
+| I6.3b | Balanced curated evaluation, same products across raw, cleaned and structured OFF inputs | Completed (Section 11) |
+| I6.3c | Natural-distribution curated evaluation, raw and structured OFF inputs | Next |
 | I6.4 | OFF–USDA paired prediction consistency, stratified by source agreement | Pending |
 | I6.5 | India-tagged evaluation | Pending |
 | I6.6 | OCR-to-DL paired comparison where reference transcription exists | Pending |
 | I7 | Decide whether model improvement is justified | Pending |
 | I8–I11 | Backend, Android integration, real scan-event analytics, final tests/documentation | Pending |
 
-Provisional design: target up to 500 per class for a balanced curated sample (adjust to actual unique-text counts), 10,000 for a natural sample if feasible, and about 2,000 source pairs stratified by agreement category. Evaluate India candidates subject to final overlap and duplicate checks. Fix a seed (proposed 42), preserve barcodes as strings, document selection and any cross-cohort overlap. Balanced and natural samples have distinct purposes; do not infer population precision from a balanced sample. Reserve untouched evaluation records if later tuning is needed. Report accuracy, macro F1, class-wise precision/recall/F1/support, confusion matrices, paired differences and prediction confidence diagnostics as appropriate. No final sample sizes or improvement decisions have been established.
+The frozen sampling design (Section 10) yielded 500 per class for the balanced curated sample, 10,000 natural curated representatives, and 5,311 reserved India representatives. A future OFF–USDA experiment targets about 2,000 source pairs subject to further checks. Balanced and natural samples have distinct purposes; do not infer population precision from a balanced sample. Reserve untouched groups if later tuning is needed. Report accuracy, macro F1, class-wise precision/recall/F1/support, confusion matrices and paired differences. No weight-improvement decision has been established; the comparison-cleaned input is provisionally excluded from subsequent inference tests because of I6.3b.
 
 ## 9. Reproducibility and report maintenance
 
@@ -285,6 +289,8 @@ Keep this file in `docs/BDA_DL_EVALUATION_FINDINGS.md` on `feature/bda-dl-integr
 source .venv-integration/bin/activate
 python src/integration/audit_bda_dl_overlap.py
 python src/integration/prepare_bda_dl_evaluation.py
+python src/integration/prepare_i6_3_samples.py
+HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_3_balanced
 ```
 
 These commands recreate the generated audit outputs; archive earlier runs if comparing changed inputs or methods.
@@ -294,5 +300,168 @@ These commands recreate the generated audit outputs; archive earlier runs if com
 | Revision | Date | Scope |
 |---|---|---|
 | 0.1 | 2026-11-25 | Initial report: I1–I5 setup and verification, I6.1 preliminary overlap, I6.2 structured audit, candidate distributions and next experimental design |
+| 0.2 | 2026-11-25 | I6.3a exact group audit, conflict exclusions, frozen samples and hashes; I6.3b plan |
+| 0.3 | 2026-11-25 | I6.3b paired balanced evaluation, class metrics, model provenance, interpretation and I6.3c plan |
 
-**Current conclusion:** Keep the existing trained DistilBERT checkpoint. The integration and screening results justify proceeding to evaluation, but do not yet justify retraining or claims of accuracy on BDA-curated or India-tagged data.
+**Current conclusion:** Keep the existing trained DistilBERT checkpoint. Balanced evaluation is complete; structured and original text substantially outperform comparison-cleaned text. Confirm the input-format decision on the natural cohort before considering any weight tuning. India and cross-source evaluations are pending.
+
+
+## 10. I6.3a — Final duplicate audit and frozen evaluation samples
+
+**Status:** Completed 25 November 2026, based on Member 1's supplied terminal output. No inference or training performed.
+
+### 10.1 Objective and method
+
+Script: `src/integration/prepare_i6_3_samples.py`. Command: `python src/integration/prepare_i6_3_samples.py` in `.venv-integration` from the repository root.
+
+Read the I6.2 curated and India candidate CSVs; recheck previous DL exclusions. Group rows across both pools by connected components of matching normalized identifiers or matching lowercase/whitespace-normalized ingredient descriptions in any of the three OFF representations (including cross-format matches). Exclude all groups with conflicting recorded NOVA labels. Keep one randomly selected representative from each remaining group, prioritizing India when a group occurs in both pools. With seed 42, draw the natural curated sample first and the balanced sample from the remaining curated representatives. Preserve the India representatives as a separate cohort. This is an exact-key grouping method, not a semantic duplicate detector. A component may link different descriptions transitively.
+
+### 10.2 Grouping and exclusions
+
+| Measurement | Count |
+|---|---:|
+| Input curated rows | 252,365 |
+| Input India rows | 5,782 |
+| Total input rows | 258,147 |
+| Connected groups | 206,002 |
+| Groups with multiple rows | 26,047 |
+| Groups shared between cohorts | 65 |
+| Conflicting-label groups | 364 |
+| Conflicting rows excluded (curated / India) | 1,607 / 41 |
+| Nonrepresentative rows excluded (curated / India) | 50,431 / 430 |
+| Representative groups retained | 205,638 |
+| Cross-sample group overlap | 0 |
+
+The 65 shared groups are not the same measure as the 15 overlapping normalized codes reported in I6.2: the grouping also links exact text across formats. Conflicting labels are excluded, not corrected or adjudicated. Reconciliation: 258,147 − 1,648 − 50,861 = 205,638 = 206,002 − 364.
+
+| NOVA | Curated representative pool | India representative pool | Balanced curated | Natural curated | India evaluation | Unused curated representatives |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 7,335 | 378 | 500 | 364 | 378 | 6,471 |
+| 2 | 695 | 53 | 500 | 34 | 53 | 161 |
+| 3 | 34,074 | 931 | 500 | 1,688 | 931 | 31,886 |
+| 4 | 158,223 | 3,949 | 500 | 7,914 | 3,949 | 149,809 |
+| **Total** | **200,327** | **5,311** | **2,000** | **10,000** | **5,311** | **188,327** |
+
+The balanced target was achieved. Natural sample NOVA 4 prevalence is 79.14%, implying a 79.14% accuracy baseline for an always-NOVA-4 classifier; only 34 actual NOVA 2 examples are available. Accuracy must therefore be interpreted with macro F1 and class support. Only 161 unused curated NOVA 2 representatives remain; preserve these groups rather than automatically allocating them to training. These are sampling observations, not model predictions.
+
+### 10.3 Reproducibility and generated outputs
+
+Directory: `data/integration/evaluation_i6_3/`. The sampling report records seed 42, input SHA-256 hashes, sample hashes, all decisions and limitations. Freeze these files; do not regenerate or modify them for subsequent evaluation. The sampling script refuses to overwrite existing outputs.
+
+| File | Observed size | SHA-256 |
+|---|---|---|
+| balanced_curated.csv | 1.9M | `e1878935db79b0c43050b4ec84fc2663dcda1cd9b880e11a8ac11674fc96a87f` |
+| natural_curated.csv | 17M | `92936831b02322f4a91d216108eb632be36c507585b52e9d241bb639b30b4f40` |
+| india_evaluation.csv | 3.2M | `c1602b19575634e152fbc2322bc32c29a85c32473ad134fc0e4514cb79bb2c45` |
+| i6_3_sampling_report.json | 3.3K | Not supplied |
+
+Hashes are transcribed from the supplied sampling run, not independently calculated on the original data here. The JSON records the upstream file hashes; retain it locally. The three samples have zero reported exact OFF group overlap. Natural sampling is group-weighted within the screened, deduplicated curated pool, not product-weighted retail prevalence. Near duplicates, inaccurate English metadata, and inaccurate OFF labels may remain. USDA descriptions were not part of group formation. The unused groups are not automatically an independent test set if tuning is undertaken.
+
+### 10.4 I6.3b paired experiment design (executed; see Section 11)
+
+Run `HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_3_balanced` with the integration environment active. Verify the frozen balanced sample hash and class counts; load the existing checkpoint once and call the same prediction function on `off_raw`, `off_clean`, and `off_dl_structured` for all 2,000 records (6,000 measured calls, plus warm-up). Record the model file hashes, device and software versions, row-level predictions and confidence scores, class-wise precision/recall/F1/support, accuracy, macro F1, confusion matrices and paired counts (both correct, first only, second only, both wrong). Outputs: `data/integration/evaluation_i6_3b/balanced_predictions.csv` and `i6_3b_balanced_metrics.json`. No new training, tuning or changes to the checkpoint. If the balanced results guide input-format selection, confirm the selected format on a separate frozen cohort. The original structured-text model remains the reference condition. Results are recorded in Section 11.
+
+
+## 11. I6.3b — Balanced paired model evaluation
+
+**Status:** Completed 25 November 2026, based on Member 1's supplied terminal output. No new training or weight tuning.
+
+### 11.1 Objective and execution
+
+Compare the effect of three ingredient representations using the same frozen 2,000-product cohort (500 products per recorded NOVA class) and the same existing DistilBERT checkpoint. The script verifies sample integrity, loads the model once, warms up the predictor, rotates representation call order across products and makes one prediction per representation per product. Evaluation was run offline with the integration environment active.
+
+```bash
+HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_3_balanced
+```
+
+- Sample: `data/integration/evaluation_i6_3/balanced_curated.csv` (hash in Section 10.3, matched in evaluation report).
+- Device: `mps:0`; PyTorch 2.15.0; Transformers 5.24.0.
+- Input fields: raw = `off_raw`, clean = `off_clean`, structured = `off_dl_structured`.
+- Measured calls: 6,000, excluding warm-up; evaluation elapsed time 78.371 s.
+
+### 11.2 Main performance metrics
+
+| Metric | Original OFF (raw) | BDA comparison-cleaned | DL structured |
+|---|---:|---:|---:|
+| Accuracy (%) | 88.40 | 60.95 | 89.60 |
+| Macro F1 | 0.884713 | 0.556720 | 0.896604 |
+| Balanced accuracy (%) | 88.40 | 60.95 | 89.60 |
+| Correct / 2,000 | 1,768 | 1,219 | 1,792 |
+| Incorrect | 232 | 781 | 208 |
+| Mean model confidence (%) | 93.826905 | 84.765525 | 94.174225 |
+| Mean predictor call latency (ms) | 13.026749 | 13.031995 | 13.097698 |
+
+Balanced accuracy equals accuracy here because each class has equal support. Confidence is a raw model score, not a calibrated probability of correctness. Timings are local predictor calls, not end-to-end API latency.
+
+### 11.3 Class-wise results
+
+All rows below have support 500; precision, recall and F1 are fractions rounded to four decimals.
+
+| Input | NOVA | Precision | Recall | F1 | Predicted count |
+|---|---:|---:|---:|---:|---:|
+| Raw | 1 | 0.9254 | 0.9180 | 0.9217 | 496 |
+| Raw | 2 | 0.9157 | 0.7820 | 0.8436 | 427 |
+| Raw | 3 | 0.7685 | 0.9160 | 0.8358 | 596 |
+| Raw | 4 | 0.9563 | 0.9200 | 0.9378 | 481 |
+| Clean | 1 | 0.5491 | 0.9060 | 0.6838 | 825 |
+| Clean | 2 | 0.5438 | 0.9320 | 0.6868 | 857 |
+| Clean | 3 | 0.8267 | 0.1240 | 0.2157 | 75 |
+| Clean | 4 | 0.9794 | 0.4760 | 0.6406 | 243 |
+| Structured | 1 | 0.9469 | 0.8920 | 0.9186 | 471 |
+| Structured | 2 | 0.9004 | 0.8140 | 0.8550 | 452 |
+| Structured | 3 | 0.7931 | 0.9200 | 0.8519 | 580 |
+| Structured | 4 | 0.9638 | 0.9580 | 0.9609 | 497 |
+
+Confusion matrices: rows = recorded NOVA, columns = predicted NOVA, order 1, 2, 3, 4.
+
+| Input | Actual | Pred 1 | Pred 2 | Pred 3 | Pred 4 |
+|---|---:|---:|---:|---:|---:|
+| Raw | 1 | 459 | 14 | 23 | 4 |
+| Raw | 2 | 19 | 391 | 83 | 7 |
+| Raw | 3 | 13 | 19 | 458 | 10 |
+| Raw | 4 | 5 | 3 | 32 | 460 |
+| Clean | 1 | 453 | 45 | 0 | 2 |
+| Clean | 2 | 29 | 466 | 4 | 1 |
+| Clean | 3 | 192 | 244 | 62 | 2 |
+| Clean | 4 | 151 | 102 | 9 | 238 |
+| Structured | 1 | 446 | 22 | 29 | 3 |
+| Structured | 2 | 12 | 407 | 74 | 7 |
+| Structured | 3 | 11 | 21 | 460 | 8 |
+| Structured | 4 | 2 | 2 | 17 | 479 |
+
+### 11.4 Paired comparisons
+
+| First → second | Both correct | First only correct | Second only correct | Both wrong | Prediction agreement (%) | Second minus first accuracy (pp) |
+|---|---:|---:|---:|---:|---:|---:|
+| Raw → clean | 1,120 | 648 | 99 | 133 | 59.65 | -27.45 |
+| Raw → structured | 1,731 | 37 | 61 | 171 | 94.90 | +1.20 |
+| Clean → structured | 1,126 | 93 | 666 | 115 | 59.70 | +28.65 |
+
+Structured text yields a net 24 additional correct predictions relative to raw. Its advantage is modest; no statistical significance or universal superiority is asserted. Cleaned text yields 549 fewer correct predictions than raw. The clean model inputs show severe NOVA 3 and 4 recall degradation, with 436 actual NOVA 3 and 253 actual NOVA 4 rows predicted as NOVA 1 or 2. High NOVA 2 recall under cleaning reflects many false positives: 466 true positives among 857 predictions. Structured text retains higher NOVA 3 and 4 F1 and higher NOVA 2 F1 than raw, but raw has slightly higher NOVA 1 F1. The original Member 2 balanced result (91.34%, macro F1 0.9132) was on a different 1,501-row sample; the difference cannot be attributed solely to preprocessing.
+
+### 11.5 Interpretation and provisional implementation decision
+
+BDA cleaning serves exact source comparison and quality auditing. It is not the same as DL training preprocessing. Removing punctuation or altering ingredient boundaries may change model tokenization and learned input patterns; this is a hypothesis, not an isolated causal mechanism. No individual cleaning operation was ablated. Keep comparison-cleaned data for BDA matching and retain the original and structured descriptions for inference. Prefer structured OFF text provisionally where available, and raw text for manual entry/OCR where structured data is absent; confirm on a separate frozen cohort. This is a format-selection decision, not a checkpoint change. Do not infer healthfulness from NOVA alone.
+
+### 11.6 Evidence and reproducibility
+
+Output folder `data/integration/evaluation_i6_3b/` contains `balanced_predictions.csv` (302K) and `i6_3b_balanced_metrics.json` (6.2K). SHA-256 of predictions: `66babdee41797d911548772b7caca4b224d207102d7cbf20dbeca6a0aba66343`.
+
+| Model file | SHA-256 |
+|---|---|
+| config.json | `d3b802f47aed03250232fbfe367bf58e34393bc0831b5853a26a2099268aa829` |
+| model.safetensors | `d688e4f77855d2797149caf80006cfd9859b0f92424e7da6d2feb48236cc371b` |
+| tokenizer.json | `0d3aef594edd5f9b53e7f814277a9171dc70ff93eb66bda6e01f7aa53997d963` |
+| tokenizer_config.json | `e1c2a61a99bda00f6c55303a210b30e2f92dcf8b555e215812e2eb583e177ffd` |
+
+Hashes and measurements were transcribed from the supplied run, not independently recalculated on the source files. Labels are OFF references, not independently adjudicated truth. Exact grouping does not rule out near duplicates. Balanced metrics do not estimate natural-distribution precision. All results are conditional on the screened cohort; the model has not been trained on it in this experiment. Preserve the frozen samples and original checkpoint.
+
+## 12. I6.3c — Natural-distribution evaluation plan (not yet executed)
+
+Evaluate raw and structured OFF text on the already frozen 10,000-row natural curated sample, with the same checkpoint and inference function. Verify the frozen sample hash, class counts and exact group/code separation from balanced and India cohorts; compare checkpoint hashes with I6.3b. Use 20,000 measured predictor calls, with warm-up excluded. The comparison-cleaned format is deliberately omitted from this follow-up based on I6.3b; no claim about its natural-cohort performance is made. This is a post-balanced format selection followed by testing on a separately frozen cohort, not a new model training experiment.
+
+```bash
+HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_3_natural
+```
+
+Expected outputs: `data/integration/evaluation_i6_3c/natural_predictions.csv` and `i6_3c_natural_metrics.json`. Report accuracy, macro F1, balanced accuracy, class-wise precision/recall/F1/support, confusion matrices and paired outcomes. Compare against the always-NOVA-4 accuracy baseline of 79.14%; only 34 actual NOVA 2 cases are present, so interpret class metrics cautiously. The cohort is representative of the screened deduplicated population only. Results remain pending. Reserve the India sample and unused groups for later experiments; do not tune model weights using a reported test cohort.
