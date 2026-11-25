@@ -67,7 +67,7 @@ class CompareFragment : Fragment() {
 
     private fun showProductPickerDialog(isProductA: Boolean) {
         if (cachedHistory.isEmpty()) {
-            Toast.makeText(requireContext(), "No recent products in history to pick from.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "No products in history. Scan or search for products first!", Toast.LENGTH_LONG).show()
             return
         }
 
