@@ -1,12 +1,14 @@
 # Food Facts — BDA + DL Integration and Evaluation Findings
 
-**Living technical report | Revision 0.7 | 25 November 2026 | I1–I6 completed; I7.1 planned**
+**Living technical report | Revision 0.12 | 26 November 2026 | I7.4 holdout completed; I7.5–I7.6 model strategy defined**
 
 Repository: `Ayushbms05/food-facts-project`  
 Working branch: `feature/bda-dl-integration`  
 Scope: integration of Member 1's BDA pipeline and Member 2's trained NOVA classifier. Member 3's Kotlin/XML work remains separate at this stage.
 
 ## Executive summary
+
+**Current status (I7.4–I7.6):** The frozen combined adjustment passed the four predeclared holdout gates. On 5,080 structured curated products, accuracy rose from 92.1654% to 92.6181% (+23 correct), and NOVA 2 false positives declined from 97 to 67 with two fewer true positives. The original checkpoint remains unchanged. Recommend no immediate fine-tuning; retain the original model for general app inference, with the combined adjustment restricted to an explicitly identified screened-curated structured-text research mode. India and OCR improvement remains unvalidated. Final policy installation and backend integration are pending.
 
 The BDA and DL source branches have been merged into a separate integration branch and pushed to GitHub. The existing DistilBERT checkpoint loads and predicts locally on Apple MPS. A reproduced 10-product smoke test returned 10/10 correct predictions; this is a functional test, not a new generalization accuracy measurement.
 
@@ -23,6 +25,10 @@ I6.4 evaluated 2,000 matched OFF–USDA pairs (4,000 predictions) drawn from the
 I6.5 evaluated all 5,311 frozen India-tagged representatives (10,622 calls). Structured text achieved **80.06% accuracy / 0.6255 macro F1**, versus raw text **79.87% / 0.6258**. The format advantage is small and metric-dependent; structured accuracy is 12.95 percentage points below the natural curated cohort, a descriptive comparison across differently selected cohorts. Structured NOVA 2 precision was only **13.77%** (50 correct out of 363 predicted), reinforcing the need for error analysis and independently held-out evaluation of any future adjustments. No training or weight tuning occurred.
 
 I6.6 completed a six-image ingredient-region OCR robustness pilot. PSM 6 yielded 64.21% pooled WER and 3/6 reference-prediction agreements; PSM 11 yielded 71.58% WER and 2/6 agreements including four empty outputs. Meaningless OCR text (`aoa`, `=`) elicited NOVA 1 scores of 90.8% and 80.0%. This motivates input validation and user review, not reliance on confidence alone. Three images overlap the India cohort by barcode, so the pilot is not an independent generalization test. No model weights were changed.
+
+I7.1 audited 30,622 saved predictions across 15,311 products. Structured-text errors with confidence at least 90% numbered 421/699 (natural curated) and 485/1,059 (India). At a descriptive 95% NOVA 2 score cut, precision was still only 54.29% and 32.33%, respectively. These findings motivate fresh development/holdout sets for calibration and prior-adjustment trials, not a threshold fitted to the inspected cohorts. No new inference or tuning was performed.
+
+I7.2b resolved the supplied DL artifact discrepancy at the normalized-record level: all 10,000 code/text/label records agree after normalization, and none of the 17,311 earlier classification evaluation rows overlaps the full training sample by normalized code or any checked OFF text. The exact cause of formatting differences and actual checkpoint lineage remain unverified. I7.3 subsequently evaluated 11 output-adjustment strengths on 5,080 development products. The selected configuration (alpha=0.3, T=1.326715596542784) yielded 93.01% unweighted accuracy versus 92.72% baseline, but NOVA 2 recall fell from 72.50% to 63.75%. Standardized macro F1 increased from 0.7289 to 0.7361; standardized ECE fell from 0.03330 to 0.01080. Temperature-only T=1.2877402988474436 retained all class decisions and improved calibration. These are development results, not independent improvement evidence. Holdout remains untouched.
 
 ## 1. Research objectives and reference baseline
 
@@ -315,8 +321,14 @@ These commands recreate the generated audit outputs; archive earlier runs if com
 | 0.5 | 2026-11-25 | I6.4 source consistency results, selection evidence, transition matrices and India evaluation plan |
 | 0.6 | 2026-11-25 | I6.5 India-tagged paired evaluation and limitations; I6.6 preparation |
 | 0.6.1 | 2026-11-25 | I6.6 local OCR inventory and planned ingredient-region protocol; no new inference results |
+| 0.6.2 | 2026-11-25 | OCR crop and reference preparation |
+| 0.7 | 2026-11-25 | OCR evaluation completed |
+| 0.8 | 2026-11-25 | I7.1 error analysis |
+| 0.9 | 2026-11-25 | I7.2 sampling and qualitative review |
+| 0.10 | 2026-11-25 | I7.2b provenance and I7.3 protocol |
+| 0.11 | 2026-11-26 | I7.3 results and predeclared I7.4 holdout decision gate |
 
-**Current conclusion:** Keep the existing trained DistilBERT checkpoint. Balanced and natural evaluations are complete. Structured text leads raw text on both, and comparison-cleaned text substantially underperforms on the balanced cohort. NOVA 2 false positives remain a concern. Cross-source and India evaluation are complete; India performance is lower and the format difference is metric-dependent. OCR evaluation remains pending; no tuning yet.
+**Historical conclusion at I6.5:** Keep the existing trained DistilBERT checkpoint. Balanced and natural evaluations are complete. Structured text leads raw text on both, and comparison-cleaned text substantially underperforms on the balanced cohort. NOVA 2 false positives remain a concern. Cross-source and India evaluation are complete; India performance is lower and the format difference is metric-dependent. OCR evaluation was pending at that revision. Current results appear in the executive summary and later sections.
 
 
 ## 10. I6.3a — Final duplicate audit and frozen evaluation samples
@@ -806,7 +818,7 @@ I6 is complete. The selected unchanged model is a workable baseline, not a fully
 | Natural curated | 93.01% | 0.7409 | 19.23% |
 | India-tagged | 80.06% | 0.6255 | 13.77% |
 
-### I7.1 — Diagnostic error analysis (planned)
+### I7.1 — Original diagnostic error analysis protocol (completed; results in Section 17)
 
 Read existing frozen natural and India samples and prediction CSVs, verify hashes and join identities, and recompute confusion matrices. Describe score bins and high-confidence errors for raw and structured formats, NOVA 2 false-positive origins, and NOVA 4 to 3/2 errors. Export a fixed-seed (42), error-enriched structured-input review sample, up to ten rows per diagnostic category and cohort, with fields for manual observations and possible label ambiguity. This is exploratory analysis of already-seen evaluation data, not new inference, threshold fitting, or independent validation. Do not claim observed labels are erroneous without verification.
 
@@ -815,3 +827,393 @@ Read existing frozen natural and India samples and prediction CSVs, verify hashe
 Reconstruct complete connected exact-text/code groups from the audited pools and preserve separation from all used groups, including OCR and source-pair texts/codes. Recheck the earlier balanced `training_sample.csv` against its three partitions if not already verified. Create new development and untouched final test sets from eligible unused groups before tuning; existing 188,327 unused curated representatives are only a starting count. If new India-tagged evaluation data are unavailable, state that limitation rather than tune and retest on I6.5. Compare unchanged baseline with simple prior adjustment and/or calibration on development data, with class-wise precision/recall, macro F1, and coverage if abstention is considered. Freeze the decision before testing. Prior adjustment assumes a form of label shift and must be empirically tested, not inferred solely from balanced training. Use fine-tuning only if justified and keep the original checkpoint. No model retraining or decision threshold has been applied yet.
 
 Revision 0.7: 25 November 2026 — I6.6 results and I6 conclusion recorded; I7.1 diagnostic protocol added. Previous revisions' pending statements are historical.
+
+
+## 17. I7.1 — Completed descriptive error audit
+
+Executed `python -m src.integration.analyze_i7_errors` on 25 November 2026. The supplied terminal report shows successful hash-checked joins and recomputed confusion matrices for both formats on 10,000 natural curated and 5,311 India-tagged products. Total saved predictions analyzed: 30,622; no new model calls, model fitting or threshold selection. The 129-row review sample is intentionally error-enriched and awaits qualitative inspection; no reference labels have been independently corrected.
+
+### 17.1 Overall diagnostics
+
+| Cohort / format | Correct / total | Accuracy | Mean score | Errors ≥90% score | NOVA 2 TP / FP / FN | NOVA 2 FP ≥90% |
+|---|---:|---:|---:|---:|---:|---:|
+| natural / raw | 9,110/10,000 | 91.10% | 95.92% | 519 | 24 / 101 / 10 | 30 |
+| natural / structured | 9,301/10,000 | 93.01% | 96.78% | 421 | 25 / 105 / 9 | 32 |
+| india / raw | 4,242/5,311 | 79.87% | 91.02% | 455 | 51 / 328 / 2 | 124 |
+| india / structured | 4,252/5,311 | 80.06% | 92.63% | 485 | 50 / 313 / 3 | 127 |
+
+### 17.2 Confidence-bin findings
+
+Bins are lower-inclusive and upper-exclusive, except 100% is included in the final bin. Accuracy is agreement with recorded OFF labels, not an independent truth. Mean confidence is a raw model score, not calibrated probability.
+
+**natural / raw**
+
+| Score bin | N | Correct | Accuracy (%) | Mean score (%) | NOVA 2 predicted N | NOVA 2 correct |
+|---|---:|---:|---:|---:|---:|---:|
+| 0-50 | 46 | 18 | 39.13 | 45.70 | 8 | 0 |
+| 50-70 | 296 | 165 | 55.74 | 60.51 | 26 | 1 |
+| 70-80 | 268 | 177 | 66.04 | 75.38 | 22 | 1 |
+| 80-90 | 427 | 306 | 71.66 | 85.39 | 20 | 3 |
+| 90-95 | 559 | 438 | 78.35 | 92.86 | 23 | 5 |
+| 95-100 | 8404 | 8006 | 95.26 | 98.84 | 26 | 14 |
+
+**natural / structured**
+
+| Score bin | N | Correct | Accuracy (%) | Mean score (%) | NOVA 2 predicted N | NOVA 2 correct |
+|---|---:|---:|---:|---:|---:|---:|
+| 0-50 | 29 | 18 | 62.07 | 45.83 | 3 | 0 |
+| 50-70 | 233 | 129 | 55.36 | 60.91 | 28 | 0 |
+| 70-80 | 188 | 110 | 58.51 | 75.63 | 19 | 2 |
+| 80-90 | 338 | 253 | 74.85 | 85.57 | 27 | 2 |
+| 90-95 | 438 | 333 | 76.03 | 92.88 | 18 | 2 |
+| 95-100 | 8774 | 8458 | 96.40 | 98.98 | 35 | 19 |
+
+**india / raw**
+
+| Score bin | N | Correct | Accuracy (%) | Mean score (%) | NOVA 2 predicted N | NOVA 2 correct |
+|---|---:|---:|---:|---:|---:|---:|
+| 0-50 | 119 | 45 | 37.82 | 44.23 | 32 | 0 |
+| 50-70 | 408 | 186 | 45.59 | 60.50 | 82 | 1 |
+| 70-80 | 299 | 152 | 50.84 | 75.27 | 59 | 2 |
+| 80-90 | 493 | 322 | 65.31 | 85.74 | 38 | 4 |
+| 90-95 | 648 | 455 | 70.22 | 92.86 | 47 | 3 |
+| 95-100 | 3344 | 3082 | 92.17 | 98.24 | 121 | 41 |
+
+**india / structured**
+
+| Score bin | N | Correct | Accuracy (%) | Mean score (%) | NOVA 2 predicted N | NOVA 2 correct |
+|---|---:|---:|---:|---:|---:|---:|
+| 0-50 | 77 | 22 | 28.57 | 44.78 | 19 | 0 |
+| 50-70 | 359 | 148 | 41.23 | 60.40 | 75 | 2 |
+| 70-80 | 241 | 116 | 48.13 | 75.05 | 44 | 1 |
+| 80-90 | 396 | 213 | 53.79 | 85.80 | 54 | 3 |
+| 90-95 | 517 | 336 | 64.99 | 93.00 | 38 | 1 |
+| 95-100 | 3721 | 3417 | 91.83 | 98.54 | 133 | 43 |
+
+### 17.3 NOVA 2 false positives and major transitions
+
+| Cohort / format | Actual 1 → 2 | Actual 3 → 2 | Actual 4 → 2 | Actual 4 → 3 | Mean score, NOVA 2 FP | Mean score, NOVA 2 TP |
+|---|---:|---:|---:|---:|---:|---:|
+| natural / raw | 7 | 67 | 27 | 640 | 76.43% | 93.30% |
+| natural / structured | 7 | 74 | 24 | 457 | 78.59% | 94.33% |
+| india / raw | 48 | 101 | 179 | 550 | 77.13% | 95.31% |
+| india / structured | 45 | 99 | 169 | 549 | 79.95% | 95.33% |
+
+For structured text, 421/699 natural errors (60.23%) and 485/1,059 India errors (45.80%) had score ≥90%. The overall score minus accuracy gap is 3.77 pp for natural and 12.57 pp for India; this is a descriptive gap, not a full calibration metric. NOVA 2 predictions with score ≥95% had 19/35 (54.29%) precision and 19/34 (55.88%) recall on natural, and 43/133 (32.33%) precision and 43/53 (81.13%) recall on India. These are descriptive calculations, not approved thresholds. High-confidence errors remain.
+
+### 17.4 Evidence and limitations
+
+Files: `data/integration/evaluation_i7_1/i7_1_error_audit.json` (16K) and `error_review_sample.csv` (31K). Review seed 42; 129 rows. Review SHA-256: `ab96b01046c561d40f2faa2160452bc12e3b2050f853474b3525ffc269077939`.
+
+- natural: sample_sha256 `92936831b02322f4a91d216108eb632be36c507585b52e9d241bb639b30b4f40`; predictions_sha256 `16393599a553b95c0e602e7e23459cf241021e03263cd28370d656a447eeb2e9`; report_sha256 `f592646d63dd4631fbe0ae41c62268443d930e9fc629dd93e41109630152d56c`.
+- india: sample_sha256 `c1602b19575634e152fbc2322bc32c29a85c32473ad134fc0e4514cb79bb2c45`; predictions_sha256 `90888090edc0999821859f894ea993aae46bcdab427eb9c0d9441e2e06c3d07e`; report_sha256 `b6b85fccdaa48b35850f04bbd1556d664e88276291d19fd310248860deda6235`.
+
+Limitations: already-inspected samples, unverified OFF reference labels, class imbalance and cohort differences, no new independent inference; confidence bins are descriptive and some have small support. The error-enriched review sample cannot estimate population prevalence. The actual ingredient examples have not yet been reviewed by the report author.
+
+## 18. I7.2 — Fresh development and holdout preparation (planned)
+
+Reconstruct connected exact normalized OFF code/text groups from the original I6.2 pools and validate I6.3a source hashes, group counts and prior sample identifiers. Include `training_sample.csv` in the exclusion union and compare its full row multiset with the union of train/validation/test. Reserve earlier samples, every India-containing group, selected OFF–USDA pair codes and texts, and all OCR image codes plus reference/recognized text. Drop conflicting-label groups. Choose one random representative per remaining group, and draw two disjoint stratified samples with seed 20261125.
+
+| NOVA class | Target development | Target holdout |
+|---|---:|---:|
+| 1 | 500 | 500 |
+| 2 | Up to 80 | Up to 80 |
+| 3 | 1,000 | 1,000 |
+| 4 | 3,500 | 3,500 |
+| Total | Up to 5,080 | Up to 5,080 |
+
+Actual quotas are capped at half the available groups per class. The previous unused curated pool had 161 NOVA 2 representatives before these additional exclusions, so the quota is not guaranteed. The strata deliberately enrich rare classes; report both unweighted metrics and separately standardized estimates using the original screened curated representative distribution (not market prevalence). Record the remaining eligible group counts and class weights. Never inspect holdout predictions or select a method based on them before freezing development decisions. No fresh India test set is currently available; no claim of India improvement can be established from I6.5 reuse. Near duplicates and label errors can remain.
+
+Revision 0.8 — I7.1 completed and I7.2 design recorded. I7.2 has not been executed. Previous revision statements are historical.
+
+
+## 19. I7.2 — Development and holdout sampling results (executed)
+
+On 25 November 2026, the supplied terminal output confirmed that the I7.2 sampler completed without inference or tuning. Seed: 20261125. It reconstructed 206,002 connected exact OFF groups, screened both prior candidate pools (252,365 curated and 5,782 India), and reserved earlier evaluation groups, all India groups, original DL files including the full training sample, source-pair text/code, and OCR references/output and image codes. Counts for reservation reasons may overlap. First-failure exclusions: 12,078 previously used/linked curated groups, 5,311 groups containing India, 364 conflicting-label groups.
+
+| NOVA | Eligible unused groups | Development | Holdout | Remaining unused |
+|---|---:|---:|---:|---:|
+| 1 | 6,470 | 500 | 500 | 5,470 |
+| 2 | 161 | 80 | 80 | 1 |
+| 3 | 31,878 | 1,000 | 1,000 | 29,878 |
+| 4 | 149,740 | 3,500 | 3,500 | 142,740 |
+| Total | 188,249 | 5,080 | 5,080 | 178,089 |
+
+All targets reached; zero development/holdout group overlap. Both samples deliberately enrich NOVA 2. Reference class priors (original screened curated representative pool): 0.0366151343, 0.0034693276, 0.1700918997, 0.7898236384. Standardization weights for classes 1–4 in both splits: 0.3720097640, 0.2203023057, 0.8640668507, 1.1463725951. These are distribution-standardized estimates, not retail prevalence; depletion and screening can change within-class representativeness. Report both unweighted and standardized metrics.
+
+Evidence: `data/integration/evaluation_i7_2/i7_2_holdout_report.json`; `development.csv` SHA-256 `0fc4c45c2c4bba6c3910f83da2e30ea304deaa6552c382bb06a3aaf38b626c6a`; `holdout.csv` SHA-256 `6523cfa3fb11bc91df1d8243d4fe11e51e0f92a0cff29a0e0398f3766a6b24ea`. Keep both files unchanged; do not infer on holdout before freezing adjustments.
+
+### 19.1 Unexpected DL artifact provenance discrepancy
+
+`training_sample.csv` contains 10,000 rows; train/validation/test union also contains 10,000. Their exact (code, ingredient_text, nova_group) row multisets differ: 7,501 rows exclusive to each side, implying 2,499 exact shared rows counted with multiplicity. This is not evidence by itself of leakage, a different checkpoint, or 7,501 different products: text changes can cause row differences. Both artifact sets were included in I7.2 exclusion screening; no old-DL-linked groups were reported in the reserved groups dictionary. This is reassuring for exact screening against the supplied artifacts, but it does not establish the checkpoint's training provenance. Earlier I6 audits did not explicitly include training_sample.csv. A read-only follow-up will compare normalized codes/text/rows, check earlier samples against the full training sample, inspect the splitting source, and seek confirmation of the actual checkpoint training inputs from Member 2. No files should be regenerated and no existing results should be silently discarded or upgraded to independent validation.
+
+## 20. I7.1 qualitative review — selected observations (executed)
+
+The uploaded error-review CSV has 129 rows (66 natural, 63 India), SHA-256 `ab96b01046c561d40f2faa2160452bc12e3b2050f853474b3525ffc269077939`, matching the I7.1 output. It is an error-enriched selection with correctly classified controls, not a random prevalence study. Examples below are descriptive and not independently adjudicated NOVA labels.
+
+| Cohort | Recorded → predicted | Score | Observed ingredient text / issue |
+|---|---|---:|---|
+| India | 1 → 2 | 81.48% | Besan; short regional term, context missing |
+| India | 1 → 2 | 94.07% | Mustard, Rai Big; regional naming |
+| India | 1 → 2 | 97.78% | Cold Pressed Groundnut Oil, vitamins, vitamin A, vitamin D; recorded label merits review |
+| Natural | 2 → 1 | 98.60% | pecans, cashews; recorded label merits review |
+| India | 4 → 2 | 78.27% | Sugar, Cocoa Butter, Milk, e322, e476, nature identical flavouring, vanilla; possible missed formulation cues |
+| India | 4 → 3 | 95.99% | Chicken/vegetables, TVP, isolate soya protein, e451; possible missed industrial ingredient cues |
+| India | 4 → 2 | 72.43% | Nuts, salt, gum arabic, cane sugar plus best-before/storage text; contaminated ingredient field |
+| India | 4 → 2 | 97.89% | Edible Common Salt, Potassium iodate, e551, e536; reference classification warrants product-context review |
+
+Correct India NOVA 4 controls include explicit flavourings and industrial additives, while correct NOVA 2 controls include oils and salted butter. Thus additive codes or regional words alone do not explain errors. Observations suggest several nonexclusive hypotheses: regional vocabulary, incomplete/noisy text, ambiguous or questionable reference labels, and missed processing-related cues. Product context and independent expert review are needed before relabeling. No prevalence estimates or causal conclusions are supported by the selected examples. No labels or model weights changed.
+
+Revision 0.9 — I7.2 sampling recorded, qualitative review examples added, provenance discrepancy flagged. I7.3 fitting deferred pending read-only provenance check. Earlier revision statements are historical.
+
+
+## 21. I7.2b — Read-only DL dataset provenance audit (executed)
+
+The supplied terminal audit compared the complete original `training_sample.csv` (10,000 rows) with the union of train, validation and test (10,000 rows). Results:
+
+| Comparison key | Unique keys per side | Shared unique keys | Exclusive rows per side | Equal multisets |
+|---|---:|---:|---:|---|
+| Exact code, text, label row | 10,000 | 2,499 | 7,501 | No |
+| Normalized code, text, integer label row | 10,000 | 10,000 | 0 | Yes |
+| Normalized code | 10,000 | 10,000 | 0 | Yes |
+| Normalized ingredient text | 7,169 | 7,169 | 0 | Yes |
+
+The audit uses conservative numeric left-zero-padding to 14 digits, trimming, lowercase and whitespace collapse, and integer NOVA labels. The difference is therefore in representations under these rules, not a missing set of normalized products or labels. The exact formatting transformation responsible is not isolated. The supplied `split_dataset.py` uses `GroupShuffleSplit` over normalized ingredient descriptions (500 candidates, seeds 42 and 43, target 15% test and 15% validation overall), choosing splits based on class proportions and size. The script writes copies of original dataframe rows; its grouping normalization does not explicitly rewrite the ingredient column. Pandas parsing or serialization may contribute to the discrepancy, but this is not established.
+
+| Prior evaluation cohort | Rows | Normalized code overlaps with full sample | Any checked OFF text overlap |
+|---|---:|---:|---:|
+| Balanced curated | 2,000 | 0 | 0 |
+| Natural curated | 10,000 | 0 | 0 |
+| India evaluation | 5,311 | 0 | 0 |
+| Total | 17,311 | 0 | 0 |
+
+No rerun is indicated by this audit. It confirms consistency of the supplied artifacts and exact screening against the full sample, not independent proof of checkpoint training lineage or absence of near duplicates. The actual training partition counts are 1,742 / 1,758 / 1,767 / 1,751 (NOVA 1–4; total 7,018), and will be used as source priors for I7.3. No files or model weights changed. Source: user-supplied terminal output and splitting code, 25 November 2026.
+
+## 22. I7.3 — Development-only output adjustment (planned, not executed)
+
+Use `development.csv` (5,080 rows) and training-style `off_dl_structured` only. Check the known development, training and original checkpoint hashes. Read the holdout hash from the I7.2 manifest only; do not open or infer on the holdout file. Extract full-precision four-class logits using the existing loaded checkpoint and tokenizer (maximum 256 tokens, truncation, maximum-length padding); compare predictions and probabilities against the existing predictor on 20 development records before proceeding. Cache logits to avoid repeatedly invoking the model. No optimizer updates or weight training.
+
+For logits z, training class proportions q, target screened curated group proportions p, prior strength alpha and positive temperature T, compute `softmax((z + alpha * log(p/q)) / T)`. Apply class bias before temperature; for fixed alpha the positive temperature preserves the argmax. Alpha=0, T=1 is the unchanged baseline; alpha=0 with fitted T is temperature-only. Target priors are not retail or India priors. Prior adjustment is an empirical experiment motivated by label shift, not guaranteed to correct domain shift.
+
+Predeclared design decisions (assistant proposed): evaluate alpha 0.0 to 1.0 in increments of 0.1; for each fit temperature on development by minimizing prior-standardized negative log-likelihood, bounded to [0.25,5], retaining T=1 if improvement is <=0.0001. Select the candidate maximizing prior-standardized macro F1, with ties preferring smaller alpha. Require standardized accuracy within 0.5 percentage points of baseline or better and NOVA 2 recall within 10 percentage points of baseline or better. Require at least 0.005 standardized macro-F1 gain to select nonzero alpha; otherwise retain temperature-only. These are engineering selection constraints, not validated product safety thresholds. Report unweighted and prior-standardized accuracy, macro F1, balanced accuracy, per-class metrics, confusion matrices, NLL, multiclass Brier and 10-bin ECE. Development metrics are fitted/selected and cannot establish generalization.
+
+Save `development_logits.csv`, `i7_3_development_metrics.json` and `frozen_adjustment.json` under `data/integration/evaluation_i7_3/`, including hashes, selection rule, parameters and model identity. The selected configuration remains provisional until I7.4 evaluates it once on the untouched curated holdout. No claim of India-specific improvement or raw/OCR-input calibration can be made. Do not tune on holdout results; if the adjustment fails, retain the baseline and obtain new evaluation data before further selection. Near duplicates, label quality and class-dependent depletion remain limitations.
+
+Revision 0.10 — I7.2b findings recorded; I7.3 design documented, execution pending. Previous revision statements are historical.
+
+
+## 23. I7.3 — Development adjustment results (completed)
+
+**Source:** Member 1 terminal output, 26 November 2026 local time. All 5,080 structured-text development rows processed on MPS:0; elapsed 65.2538 s for logit collection, with 20 original-predictor parity checks. Torch 2.15.0, Transformers 5.24.0. The script verified the checkpoint and input hashes before inference. No model weights changed; holdout not opened or predicted.
+
+### 23.1 Results
+
+**Unweighted metrics**
+
+| Metric | Original | Temperature only | Combined |
+|---|---:|---:|---:|
+| accuracy_pct | 92.716535 | 92.716535 | 93.011811 |
+| macro_f1 | 0.808678 | 0.808678 | 0.809454 |
+| balanced_accuracy_pct | 86.425000 | 86.425000 | 84.416071 |
+| nll | 0.264263 | 0.246183 | 0.213386 |
+| multiclass_brier | 0.122597 | 0.118453 | 0.108146 |
+| ece_10_equal_width | 0.035906 | 0.010843 | 0.012874 |
+| mean_confidence_pct | 96.281272 | 93.475499 | 94.299236 |
+| NOVA 2 precision | 0.402778 | 0.402778 | 0.435897 |
+| NOVA 2 recall | 0.725000 | 0.725000 | 0.637500 |
+| NOVA 2 f1 | 0.517857 | 0.517857 | 0.517766 |
+
+**Prior standardized metrics**
+
+| Metric | Original | Temperature only | Combined |
+|---|---:|---:|---:|
+| accuracy_pct | 93.486884 | 93.486884 | 93.950132 |
+| macro_f1 | 0.728895 | 0.728895 | 0.736114 |
+| balanced_accuracy_pct | 86.425000 | 86.425000 | 84.416071 |
+| nll | 0.244479 | 0.227881 | 0.187998 |
+| multiclass_brier | 0.111309 | 0.107772 | 0.095387 |
+| ece_10_equal_width | 0.033301 | 0.009097 | 0.010797 |
+| mean_confidence_pct | 96.700828 | 94.037550 | 95.029837 |
+| NOVA 2 precision | 0.161403 | 0.161403 | 0.180946 |
+| NOVA 2 recall | 0.725000 | 0.725000 | 0.637500 |
+| NOVA 2 f1 | 0.264027 | 0.264027 | 0.281883 |
+
+**Development candidate grid** (all temperatures fitted by weighted NLL):
+
+| Alpha | T | Standardized accuracy (%) | Standardized macro F1 | Standardized NOVA 2 precision | NOVA 2 recall | Constraints pass |
+|---:|---:|---:|---:|---:|---:|---|
+| 0.0 | 1.287740 | 93.4869 | 0.728895 | 0.161403 | 0.7250 | Yes |
+| 0.1 | 1.303574 | 93.5847 | 0.727821 | 0.161193 | 0.6750 | Yes |
+| 0.2 | 1.316549 | 93.8064 | 0.734123 | 0.174775 | 0.6625 | Yes |
+| 0.3 | 1.326716 | 93.9501 | 0.736114 | 0.180946 | 0.6375 | Yes |
+| 0.4 | 1.334178 | 94.0804 | 0.744500 | 0.210229 | 0.6125 | No |
+| 0.5 | 1.339074 | 94.2272 | 0.752086 | 0.233752 | 0.6125 | No |
+| 0.6 | 1.341572 | 94.5043 | 0.767131 | 0.285279 | 0.6125 | No |
+| 0.7 | 1.341875 | 94.6917 | 0.777297 | 0.331992 | 0.5875 | No |
+| 0.8 | 1.340220 | 94.8194 | 0.776387 | 0.341804 | 0.5375 | No |
+| 0.9 | 1.336888 | 94.8440 | 0.772235 | 0.340601 | 0.4875 | No |
+| 1.0 | 1.332203 | 95.0637 | 0.782597 | 0.415868 | 0.4625 | No |
+
+Alpha 0.3 maximized standardized macro F1 among feasible candidates. The minimum recall was 0.625 and minimum standardized accuracy 92.986884%; required macro-F1 gain for nonzero alpha was 0.005. The selected gain was 0.007219. Alpha 0.4 and above failed recall constraints. Temperature-only did not change any class counts.
+
+**Unweighted confusion matrices (rows recorded NOVA, columns predicted NOVA):**
+
+baseline:
+
+| Actual / predicted | 1 | 2 | 3 | 4 |
+|---|---:|---:|---:|---:|
+| 1 | 435 | 27 | 30 | 8 |
+| 2 | 5 | 58 | 16 | 1 |
+| 3 | 21 | 40 | 920 | 19 |
+| 4 | 20 | 19 | 164 | 3297 |
+
+selected:
+
+| Actual / predicted | 1 | 2 | 3 | 4 |
+|---|---:|---:|---:|---:|
+| 1 | 433 | 20 | 36 | 11 |
+| 2 | 7 | 51 | 20 | 2 |
+| 3 | 20 | 33 | 926 | 21 |
+| 4 | 19 | 13 | 153 | 3315 |
+
+The adjusted model classified 4,725 of 5,080 correctly, versus 4,710 originally (net +15). NOVA 2 true positives declined from 58 to 51, false positives from 86 to 66, and false negatives increased from 22 to 29. These are net counts, not paired transition identities. Unweighted NOVA 2 F1 was nearly unchanged (0.517857 to 0.517766); balanced accuracy fell 2.009 pp. Standardized NOVA 2 precision increased from 16.14% to 18.09% but is still low. Full prior adjustment achieved greater standardized accuracy and macro F1 but retained only 46.25% NOVA 2 recall, so was rejected by the predeclared development constraints. Calibration improved in development; ECE was slightly lower with temperature-only than combined adjustment. A fitted improvement on the same development data is not a generalization result. No claim of improvement for India or raw/OCR input is supported.
+
+### 23.2 Reproducibility
+
+- frozen_adjustment_sha256: `5cab4b4772f2c0c7edc93b8dc39c10cdf55a155c4c5c9df4c8806e79e20956b0`
+- development_logits_sha256: `1aef85000ff9884670ec1972fdca64c9b7e06b0e25fbe335e32a660625231c4f`
+- Development SHA-256: `0fc4c45c2c4bba6c3910f83da2e30ea304deaa6552c382bb06a3aaf38b626c6a`
+- Holdout SHA-256: `6523cfa3fb11bc91df1d8243d4fe11e51e0f92a0cff29a0e0398f3766a6b24ea` (from I7.2, not opened in I7.3).
+- Actual full metrics remain in `data/integration/evaluation_i7_3/i7_3_development_metrics.json`. Frozen combined parameters alpha=0.3, T=1.326715596542784; temperature-only alpha=0, T=1.2877402988474436.
+
+## 24. I7.4 — Holdout protocol (planned)
+
+Evaluate once on all 5,080 untouched structured-text holdout products. Verify frozen configuration, development logits, samples, checkpoint, train file and manifest hashes. Recheck development/holdout group, code and normalized OFF-text disjointness; use same logit extraction and metric functions. Compare exactly three settings on identical holdout logits: original, frozen temperature-only and frozen combined. No fitting or searching. Report unweighted and prior-standardized metrics, calibration, per-class metrics, confusion matrices and paired correctness counts.
+
+**Predeclared acceptance rule, proposed by assistant before holdout results:** combined adjustment must gain at least 0.005 standardized macro F1, lose no more than 0.5 percentage points standardized accuracy, lose no more than 0.10 absolute NOVA 2 recall, and improve standardized NLL by at least 0.0001 compared with holdout original baseline. If it fails any gate, retain original class decisions and use the frozen temperature-only configuration only if it improves standardized NLL by at least 0.0001; otherwise retain original probabilities too. ECE and Brier are also reported. This is a limited acceptance test of preselected candidates, not a search for new values or statistical proof of improvement. Do not optimize on the holdout; further experimentation requires fresh evaluation data. The recommendation is restricted to screened curated structured text and not validated for India, raw ingredients or OCR. The reference distribution is not a retail prior. Only 80 NOVA 2 holdout examples; conclusions must reflect this uncertainty.
+
+Revision 0.11 — I7.3 completed; I7.4 planned, not yet run. Previous findings preserved.
+
+
+## 25. I7.4 — Frozen holdout results (completed)
+
+**Source:** Member 1 supplied terminal JSON, 26 November 2026 local time. All 5,080 holdout examples evaluated on MPS:0, Torch 2.15.0, Transformers 5.24.0. Logit collection elapsed 65.218845 s; 20 parity checks. Development/holdout exact code/group/text overlap reported as zero. Same model hashes as I7.3; no fitting or weight change. This is a separate stratified curated holdout, not an independent external gold-standard or Indian-market sample.
+
+### 25.1 Metrics
+
+**Unweighted**
+
+| Metric | Original | Temperature only | Combined |
+|---|---:|---:|---:|
+| accuracy_pct | 92.165354 | 92.165354 | 92.618110 |
+| macro_f1 | 0.817791 | 0.817791 | 0.835562 |
+| balanced_accuracy_pct | 89.807143 | 89.807143 | 89.514286 |
+| nll | 0.279397 | 0.257581 | 0.219577 |
+| multiclass_brier | 0.129418 | 0.124195 | 0.112671 |
+| ece_10_equal_width | 0.042616 | 0.015682 | 0.016472 |
+| mean_confidence_pct | 96.377207 | 93.572072 | 94.246197 |
+
+| NOVA | Metric | Original | Temperature only | Combined |
+|---|---|---:|---:|---:|
+| 1 | precision | 0.908911 | 0.908911 | 0.914172 |
+| 1 | recall | 0.918000 | 0.918000 | 0.916000 |
+| 1 | f1 | 0.913433 | 0.913433 | 0.915085 |
+| 2 | precision | 0.412121 | 0.412121 | 0.496241 |
+| 2 | recall | 0.850000 | 0.850000 | 0.825000 |
+| 2 | f1 | 0.555102 | 0.555102 | 0.619718 |
+| 3 | precision | 0.796429 | 0.796429 | 0.792801 |
+| 3 | recall | 0.892000 | 0.892000 | 0.903000 |
+| 3 | f1 | 0.841509 | 0.841509 | 0.844320 |
+| 4 | precision | 0.991793 | 0.991793 | 0.991231 |
+| 4 | recall | 0.932286 | 0.932286 | 0.936571 |
+| 4 | f1 | 0.961119 | 0.961119 | 0.963126 |
+
+**Prior standardized**
+
+| Metric | Original | Temperature only | Combined |
+|---|---:|---:|---:|
+| accuracy_pct | 92.462489 | 92.462489 | 92.972090 |
+| macro_f1 | 0.726676 | 0.726676 | 0.747923 |
+| balanced_accuracy_pct | 89.807143 | 89.807143 | 89.514286 |
+| nll | 0.275296 | 0.251750 | 0.207586 |
+| multiclass_brier | 0.125817 | 0.120542 | 0.107494 |
+| ece_10_equal_width | 0.043100 | 0.017149 | 0.020101 |
+| mean_confidence_pct | 96.719341 | 94.058267 | 94.961617 |
+
+| NOVA | Metric | Original | Temperature only | Combined |
+|---|---|---:|---:|---:|
+| 1 | precision | 0.796816 | 0.796816 | 0.814150 |
+| 1 | recall | 0.918000 | 0.918000 | 0.916000 |
+| 1 | f1 | 0.853126 | 0.853126 | 0.862077 |
+| 2 | precision | 0.159185 | 0.159185 | 0.211801 |
+| 2 | recall | 0.850000 | 0.850000 | 0.825000 |
+| 2 | f1 | 0.268151 | 0.268151 | 0.337068 |
+| 3 | precision | 0.764404 | 0.764404 | 0.765063 |
+| 3 | recall | 0.892000 | 0.892000 | 0.903000 |
+| 3 | f1 | 0.823288 | 0.823288 | 0.828328 |
+| 4 | precision | 0.993972 | 0.993972 | 0.993545 |
+| 4 | recall | 0.932286 | 0.932286 | 0.936571 |
+| 4 | f1 | 0.962141 | 0.962141 | 0.964217 |
+
+### 25.2 Confusion matrices and paired results
+
+Unweighted matrices (rows recorded OFF NOVA; columns predicted NOVA). Temperature-only matrix equals original.
+
+**Original**
+
+| Actual / predicted | 1 | 2 | 3 | 4 |
+|---|---:|---:|---:|---:|
+| 1 | 459 | 21 | 20 | 0 |
+| 2 | 2 | 68 | 9 | 1 |
+| 3 | 26 | 56 | 892 | 26 |
+| 4 | 18 | 20 | 199 | 3263 |
+
+**Combined**
+
+| Actual / predicted | 1 | 2 | 3 | 4 |
+|---|---:|---:|---:|---:|
+| 1 | 458 | 14 | 28 | 0 |
+| 2 | 3 | 66 | 10 | 1 |
+| 3 | 27 | 42 | 903 | 28 |
+| 4 | 13 | 11 | 198 | 3278 |
+
+Original: 4,682 correct, 398 incorrect. Combined: 4,705 correct, 375 incorrect. Both correct 4,673; original only correct 9; combined only correct 32; both wrong 366. There were 54 changed predictions, of which 13 switched between incorrect labels. Net gain 23 (+0.452756 pp unweighted). NOVA 2: 68 true positives, 97 false positives, 12 false negatives before; 66 true positives, 67 false positives, 14 false negatives after. Unweighted precision rises from 41.21% to 49.62%, recall falls from 85.00% to 82.50%. Standardized precision rises from 15.92% to 21.18%; low precision remains a material limitation. Only 80 recorded NOVA 2 examples; class-specific results are uncertain. These results do not prove improvement for each product or deployment population.
+
+### 25.3 Predeclared acceptance gates
+
+| Gate | Observed result | Pass |
+|---|---:|---|
+| Standardized macro F1 gain >= 0.005 | +0.021246 | Yes |
+| Standardized accuracy loss <= 0.5 pp | +0.509601 pp gain | Yes |
+| NOVA 2 recall loss <= 0.10 absolute | -0.025 | Yes |
+| Standardized NLL improvement >= 0.0001 | 0.067710 | Yes |
+
+Temperature-only also passed its NLL-improvement gate (0.023545). The frozen combined configuration is accepted under the predeclared engineering criteria for the screened curated structured-text scope. This is not proof of a universal improvement. Standardized estimates reweight the stratified cohort to the original screened curated group frequencies; they are not measured retail prevalence.
+
+### 25.4 Reproducibility
+
+Parameters: original alpha=0, T=1; temperature-only alpha=0, T=1.2877402988474436; combined alpha=0.3, T=1.326715596542784. Formula: `softmax((logits + alpha * log(target_prior / train_prior)) / temperature)`. Apply prior bias before temperature, use unrounded logits, NOVA order [1,2,3,4].
+
+- holdout_sha256: `6523cfa3fb11bc91df1d8243d4fe11e51e0f92a0cff29a0e0398f3766a6b24ea`
+- development_sha256: `0fc4c45c2c4bba6c3910f83da2e30ea304deaa6552c382bb06a3aaf38b626c6a`
+- frozen_adjustment_sha256: `5cab4b4772f2c0c7edc93b8dc39c10cdf55a155c4c5c9df4c8806e79e20956b0`
+- development_metrics_sha256: `535624ddae3fdc371650dee8521e2988c0ad5e998fd7d06f09733d92e484260c`
+- predictions_sha256: `da23f8a361d2d1ae8608870e4e8f0a8a9debca5747088f1b7a58160f62946d27`
+- Model config.json: `d3b802f47aed03250232fbfe367bf58e34393bc0831b5853a26a2099268aa829`
+- Model model.safetensors: `d688e4f77855d2797149caf80006cfd9859b0f92424e7da6d2feb48236cc371b`
+- Model tokenizer.json: `0d3aef594edd5f9b53e7f814277a9171dc70ff93eb66bda6e01f7aa53997d963`
+- Model tokenizer_config.json: `e1c2a61a99bda00f6c55303a210b30e2f92dcf8b555e215812e2eb583e177ffd`
+
+Full local evidence: `data/integration/evaluation_i7_4/i7_4_holdout_metrics.json` and `holdout_predictions.csv`. The report is based on supplied output, not independent model reruns.
+
+## 26. I7.5–I7.6 — Fine-tuning decision and inference strategy
+
+**Decision proposed after the predeclared holdout test:** defer fine-tuning for the current prototype. Preserve the original DistilBERT weights, tokenizer and predictor. The adjustment meets the curated holdout acceptance criteria, but is not a validated solution to India-specific error patterns or OCR failure. The holdout is now consumed: do not use it to fit additional parameters. Any new tuning requires separately prepared evaluation data and preferably independently reviewed labels.
+
+**Recommended implementation policy:** default to original model behavior (alpha=0, T=1) for the general app, especially India-tagged products, raw OFF/USDA ingredients, OCR and manual text, or unknown provenance. Offer combined adjustment only as an explicit research/evaluation mode for screened-curated structured OFF data matching the evaluated scope; do not automatically enable it for arbitrary barcode lookups merely because structured text exists. Temperature-only also improved holdout probability quality but is not validated for other scopes; keep it as a research comparator. Do not claim India improvement or market-wide calibration. Label scores as model scores, not a guarantee of correctness. Do not interpret NOVA as a general health or safety score.
+
+For product lookup keep the recorded OFF classification separate from the predicted NOVA and identify ingredient provenance. Preserve raw and structured text for inference; comparison-cleaned text remains for BDA matching only. Reject blank or symbol-only inputs and flag suspicious fragments; require review of OCR text, but allow legitimate single ingredients. Preserve discrepancies between OFF and USDA, and avoid presenting source agreement as accuracy.
+
+**Status:** I7.5 decision documented; I7.6 policy proposed/frozen as a documentation artifact, local installation and backend implementation pending. No new training or inference required for these decisions. Next I8 begins with read-only repo/backend inventory, then API contract, indexed local product store and FastAPI implementation. Mobile branch remains separate. Final app safeguards and API performance need actual testing.
+
+Revision 0.12 — I7.4 completed, fine-tuning decision and scope-limited inference policy documented; previous revision statements are historical.

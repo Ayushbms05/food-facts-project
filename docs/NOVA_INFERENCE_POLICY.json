@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "status": "proposed_for_backend_implementation",
+  "model": "distilbert_food_nova",
+  "model_files_sha256": {
+    "config.json": "d3b802f47aed03250232fbfe367bf58e34393bc0831b5853a26a2099268aa829",
+    "model.safetensors": "d688e4f77855d2797149caf80006cfd9859b0f92424e7da6d2feb48236cc371b",
+    "tokenizer.json": "0d3aef594edd5f9b53e7f814277a9171dc70ff93eb66bda6e01f7aa53997d963",
+    "tokenizer_config.json": "e1c2a61a99bda00f6c55303a210b30e2f92dcf8b555e215812e2eb583e177ffd"
+  },
+  "labels": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "default": {
+    "mode": "original",
+    "alpha": 0.0,
+    "temperature": 1.0,
+    "scope": "general application including India-tagged, raw, OCR, manual or unknown provenance"
+  },
+  "research_modes": {
+    "combined": {
+      "alpha": 0.3,
+      "temperature": 1.326715596542784,
+      "scope": "explicit opt-in screened curated structured OFF research only; not automatically eligible based on text format alone"
+    },
+    "temperature_only": {
+      "alpha": 0.0,
+      "temperature": 1.2877402988474436,
+      "scope": "same research scope only"
+    }
+  },
+  "formula": "softmax((logits + alpha * log(target_prior / train_prior)) / temperature)",
+  "train_prior": [
+    0.2482188657737247,
+    0.25049871758335707,
+    0.2517811342262753,
+    0.2495012824166429
+  ],
+  "target_prior": [
+    0.03661513425549227,
+    0.0034693276492934054,
+    0.1700918997439187,
+    0.7898236383512957
+  ],
+  "frozen_adjustment_sha256": "5cab4b4772f2c0c7edc93b8dc39c10cdf55a155c4c5c9df4c8806e79e20956b0",
+  "holdout_sha256": "6523cfa3fb11bc91df1d8243d4fe11e51e0f92a0cff29a0e0398f3766a6b24ea",
+  "holdout_predictions_sha256": "da23f8a361d2d1ae8608870e4e8f0a8a9debca5747088f1b7a58160f62946d27",
+  "fine_tuning": "deferred for prototype; original model weights unchanged",
+  "limitations": [
+    "OFF labels not independently verified; near duplicates possible.",
+    "Stratified curated holdout; standardized estimates target screened curated groups, not retail prevalence.",
+    "Only 80 recorded NOVA 2 examples; rare-class estimates uncertain.",
+    "Structured input only; no fresh India or OCR validation.",
+    "Acceptance criteria are engineering choices; no tuning on holdout."
+  ],
+  "implementation_notes": [
+    "Use unrounded logits and exact label order. No adjustments to general app predictions.",
+    "Do not expose research mode as validated for India or OCR.",
+    "Keep recorded OFF labels separate from model predictions.",
+    "Do not use comparison-cleaned ingredient text as classifier input.",
+    "Validate OCR and require user review; no confidence-only acceptance.",
+    "This file documents policy; backend must implement and test it."
+  ]
+}
