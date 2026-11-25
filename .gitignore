@@ -8,3 +8,14 @@ __pycache__/
 .DS_Store
 *.csv
 *.parquet
+
+# Integration environment
+.venv-integration/
+
+# Android generated and local files
+mobile/.gradle/
+mobile/.kotlin/
+mobile/.idea/
+mobile/**/build/
+mobile/local.properties
+mobile/**/*.iml
