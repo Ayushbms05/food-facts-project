@@ -1,6 +1,6 @@
 # Food Facts — BDA + DL Integration and Evaluation Findings
 
-**Living technical report | Revision 0.3 | 25 November 2026 | Completed through I6.3b**
+**Living technical report | Revision 0.7 | 25 November 2026 | I1–I6 completed; I7.1 planned**
 
 Repository: `Ayushbms05/food-facts-project`  
 Working branch: `feature/bda-dl-integration`  
@@ -16,7 +16,13 @@ An audit finding is that screening by raw and cleaned ingredient text alone was 
 
 I6.3a subsequently grouped the screened candidates by connected exact normalized OFF text and code, removed 364 conflicting-label groups, and froze three disjoint samples: **2,000 balanced curated**, **10,000 natural curated**, and **5,311 India-tagged** representatives. These are preparation findings, not model-performance results.
 
-I6.3b evaluated all 2,000 balanced curated products in three ingredient representations with the unchanged checkpoint. Structured text achieved **89.60% accuracy / 0.8966 macro F1**, original OFF text **88.40% / 0.8847**, and comparison-cleaned text **60.95% / 0.5567**. The large degradation after comparison cleaning motivates separate BDA matching and DL inference text representations. Structured text is the provisional preferred format when available; raw text remains the practical alternative. I6.3c will test both on the separate frozen natural cohort. No training or weight tuning has occurred.
+I6.3b evaluated all 2,000 balanced curated products in three ingredient representations with the unchanged checkpoint. Structured text achieved **89.60% accuracy / 0.8966 macro F1**, original OFF text **88.40% / 0.8847**, and comparison-cleaned text **60.95% / 0.5567**. The large degradation after comparison cleaning motivates separate BDA matching and DL inference text representations. Structured text is the provisional preferred format when available; raw text remains the practical alternative. I6.3c tested both on the separate frozen natural cohort (10,000 products): structured text achieved **93.01% accuracy / 0.7409 macro F1**, raw text **91.10% / 0.7239**. Structured text is preferred for OFF inference; raw is the fallback. NOVA 2 precision remains weak (25 of 130 structured predictions correct, 19.23%). No training or weight tuning has occurred.
+
+I6.4 evaluated 2,000 matched OFF–USDA pairs (4,000 predictions) drawn from the frozen natural cohort. Raw-input prediction agreement was **95.60%** overall, 100% for `same_basic`, 97.15% for `same_after_extra_cleanup`, and 89.64% for `still_different`. These are stratified consistency results, not USDA accuracy or independent population estimates. The source-aware review flags remain useful; source disagreement does not identify the correct classification.
+
+I6.5 evaluated all 5,311 frozen India-tagged representatives (10,622 calls). Structured text achieved **80.06% accuracy / 0.6255 macro F1**, versus raw text **79.87% / 0.6258**. The format advantage is small and metric-dependent; structured accuracy is 12.95 percentage points below the natural curated cohort, a descriptive comparison across differently selected cohorts. Structured NOVA 2 precision was only **13.77%** (50 correct out of 363 predicted), reinforcing the need for error analysis and independently held-out evaluation of any future adjustments. No training or weight tuning occurred.
+
+I6.6 completed a six-image ingredient-region OCR robustness pilot. PSM 6 yielded 64.21% pooled WER and 3/6 reference-prediction agreements; PSM 11 yielded 71.58% WER and 2/6 agreements including four empty outputs. Meaningless OCR text (`aoa`, `=`) elicited NOVA 1 scores of 90.8% and 80.0%. This motivates input validation and user review, not reliance on confidence alone. Three images overlap the India cohort by barcode, so the pilot is not an independent generalization test. No model weights were changed.
 
 ## 1. Research objectives and reference baseline
 
@@ -270,14 +276,14 @@ Candidate CSV columns: `cohort`, `code`, `normalized_code`, `nova_group`, `produ
 |---|---|---|
 | I6.3a | Audit duplicate ingredient keys and conflicting labels within/between retained pools; freeze reproducible sample manifests | Completed (Section 10) |
 | I6.3b | Balanced curated evaluation, same products across raw, cleaned and structured OFF inputs | Completed (Section 11) |
-| I6.3c | Natural-distribution curated evaluation, raw and structured OFF inputs | Next |
-| I6.4 | OFF–USDA paired prediction consistency, stratified by source agreement | Pending |
-| I6.5 | India-tagged evaluation | Pending |
-| I6.6 | OCR-to-DL paired comparison where reference transcription exists | Pending |
+| I6.3c | Natural-distribution curated evaluation, raw and structured OFF inputs | Completed |
+| I6.4 | OFF–USDA paired prediction consistency, stratified by source agreement | Completed (Section 13) |
+| I6.5 | India-tagged evaluation | Completed (Section 14) |
+| I6.6 | OCR-to-DL paired comparison where reference transcription exists | Completed: six-image robustness pilot (Section 15) |
 | I7 | Decide whether model improvement is justified | Pending |
 | I8–I11 | Backend, Android integration, real scan-event analytics, final tests/documentation | Pending |
 
-The frozen sampling design (Section 10) yielded 500 per class for the balanced curated sample, 10,000 natural curated representatives, and 5,311 reserved India representatives. A future OFF–USDA experiment targets about 2,000 source pairs subject to further checks. Balanced and natural samples have distinct purposes; do not infer population precision from a balanced sample. Reserve untouched groups if later tuning is needed. Report accuracy, macro F1, class-wise precision/recall/F1/support, confusion matrices and paired differences. No weight-improvement decision has been established; the comparison-cleaned input is provisionally excluded from subsequent inference tests because of I6.3b.
+The frozen sampling design (Section 10) yielded 500 per class for the balanced curated sample, 10,000 natural curated representatives, and 5,311 reserved India representatives. The OFF–USDA experiment reached its target of 2,000 pairs (Section 13). Balanced and natural samples have distinct purposes; do not infer population precision from a balanced sample. Reserve untouched groups if later tuning is needed. Report accuracy, macro F1, class-wise precision/recall/F1/support, confusion matrices and paired differences. No weight-improvement decision has been established; the comparison-cleaned input is provisionally excluded from subsequent inference tests because of I6.3b.
 
 ## 9. Reproducibility and report maintenance
 
@@ -291,6 +297,9 @@ python src/integration/audit_bda_dl_overlap.py
 python src/integration/prepare_bda_dl_evaluation.py
 python src/integration/prepare_i6_3_samples.py
 HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_3_balanced
+HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_3_natural
+HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_4_sources
+HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_5_india
 ```
 
 These commands recreate the generated audit outputs; archive earlier runs if comparing changed inputs or methods.
@@ -302,8 +311,12 @@ These commands recreate the generated audit outputs; archive earlier runs if com
 | 0.1 | 2026-11-25 | Initial report: I1–I5 setup and verification, I6.1 preliminary overlap, I6.2 structured audit, candidate distributions and next experimental design |
 | 0.2 | 2026-11-25 | I6.3a exact group audit, conflict exclusions, frozen samples and hashes; I6.3b plan |
 | 0.3 | 2026-11-25 | I6.3b paired balanced evaluation, class metrics, model provenance, interpretation and I6.3c plan |
+| 0.4 | 2026-11-25 | I6.3c natural paired evaluation, class imbalance, NOVA 2 limitation and I6.4 plan |
+| 0.5 | 2026-11-25 | I6.4 source consistency results, selection evidence, transition matrices and India evaluation plan |
+| 0.6 | 2026-11-25 | I6.5 India-tagged paired evaluation and limitations; I6.6 preparation |
+| 0.6.1 | 2026-11-25 | I6.6 local OCR inventory and planned ingredient-region protocol; no new inference results |
 
-**Current conclusion:** Keep the existing trained DistilBERT checkpoint. Balanced evaluation is complete; structured and original text substantially outperform comparison-cleaned text. Confirm the input-format decision on the natural cohort before considering any weight tuning. India and cross-source evaluations are pending.
+**Current conclusion:** Keep the existing trained DistilBERT checkpoint. Balanced and natural evaluations are complete. Structured text leads raw text on both, and comparison-cleaned text substantially underperforms on the balanced cohort. NOVA 2 false positives remain a concern. Cross-source and India evaluation are complete; India performance is lower and the format difference is metric-dependent. OCR evaluation remains pending; no tuning yet.
 
 
 ## 10. I6.3a — Final duplicate audit and frozen evaluation samples
@@ -456,7 +469,7 @@ Output folder `data/integration/evaluation_i6_3b/` contains `balanced_prediction
 
 Hashes and measurements were transcribed from the supplied run, not independently recalculated on the source files. Labels are OFF references, not independently adjudicated truth. Exact grouping does not rule out near duplicates. Balanced metrics do not estimate natural-distribution precision. All results are conditional on the screened cohort; the model has not been trained on it in this experiment. Preserve the frozen samples and original checkpoint.
 
-## 12. I6.3c — Natural-distribution evaluation plan (not yet executed)
+## 12. I6.3c — Natural-distribution evaluation (completed)
 
 Evaluate raw and structured OFF text on the already frozen 10,000-row natural curated sample, with the same checkpoint and inference function. Verify the frozen sample hash, class counts and exact group/code separation from balanced and India cohorts; compare checkpoint hashes with I6.3b. Use 20,000 measured predictor calls, with warm-up excluded. The comparison-cleaned format is deliberately omitted from this follow-up based on I6.3b; no claim about its natural-cohort performance is made. This is a post-balanced format selection followed by testing on a separately frozen cohort, not a new model training experiment.
 
@@ -464,4 +477,341 @@ Evaluate raw and structured OFF text on the already frozen 10,000-row natural cu
 HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_3_natural
 ```
 
-Expected outputs: `data/integration/evaluation_i6_3c/natural_predictions.csv` and `i6_3c_natural_metrics.json`. Report accuracy, macro F1, balanced accuracy, class-wise precision/recall/F1/support, confusion matrices and paired outcomes. Compare against the always-NOVA-4 accuracy baseline of 79.14%; only 34 actual NOVA 2 cases are present, so interpret class metrics cautiously. The cohort is representative of the screened deduplicated population only. Results remain pending. Reserve the India sample and unused groups for later experiments; do not tune model weights using a reported test cohort.
+### 12.1 Execution and results
+
+Run reported on 25 November 2026. All 20,000 measured predictions completed in 270.571867 seconds on `mps:0`, PyTorch 2.15.0, Transformers 5.24.0. The natural sample hash matched Section 10 and all four checkpoint hashes matched Section 11.6. The recorded NOVA supports were 364, 34, 1,688 and 7,914. The always-NOVA-4 baseline scored 79.14% accuracy and 0.220889 macro F1.
+
+| Metric | Original OFF | DL structured |
+|---|---:|---:|
+| Accuracy (%) | 91.10 | 93.01 |
+| Macro F1 | 0.723887 | 0.740930 |
+| Balanced accuracy (%) | 86.3620 | 87.5242 |
+| Correct / 10,000 | 9,110 | 9,301 |
+| Incorrect | 890 | 699 |
+| Mean confidence (%) | 95.920210 | 96.778177 |
+| Mean call latency (ms) | 13.524761 | 13.517206 |
+
+### 12.2 Class-level metrics
+
+| Input | NOVA | Precision | Recall | F1 | Support | Predicted count |
+|---|---:|---:|---:|---:|---:|---:|
+| Raw | 1 | 0.7874 | 0.9258 | 0.8510 | 364 | 428 |
+| Raw | 2 | 0.1920 | 0.7059 | 0.3019 | 34 | 125 |
+| Raw | 3 | 0.6992 | 0.9117 | 0.7915 | 1688 | 2201 |
+| Raw | 4 | 0.9950 | 0.9110 | 0.9512 | 7914 | 7246 |
+| Structured | 1 | 0.8166 | 0.9176 | 0.8642 | 364 | 409 |
+| Structured | 2 | 0.1923 | 0.7353 | 0.3049 | 34 | 130 |
+| Structured | 3 | 0.7617 | 0.9129 | 0.8305 | 1688 | 2023 |
+| Structured | 4 | 0.9950 | 0.9352 | 0.9642 | 7914 | 7438 |
+
+Confusion matrices (rows recorded OFF NOVA, columns predicted NOVA):
+
+| Input | Actual | Pred 1 | Pred 2 | Pred 3 | Pred 4 |
+|---|---:|---:|---:|---:|---:|
+| Raw | 1 | 337 | 7 | 16 | 4 |
+| Raw | 2 | 3 | 24 | 6 | 1 |
+| Raw | 3 | 51 | 67 | 1539 | 31 |
+| Raw | 4 | 37 | 27 | 640 | 7210 |
+| Structured | 1 | 334 | 7 | 20 | 3 |
+| Structured | 2 | 3 | 25 | 5 | 1 |
+| Structured | 3 | 40 | 74 | 1541 | 33 |
+| Structured | 4 | 32 | 24 | 457 | 7401 |
+
+### 12.3 Paired comparison
+
+| Both correct | Raw only correct | Structured only correct | Both wrong | Prediction agreement | Structured minus raw accuracy |
+|---:|---:|---:|---:|---:|---:|
+| 9036 | 74 | 265 | 625 | 96.45% | +1.91 percentage points |
+
+Structured text gives 191 additional correct predictions, a relative error reduction of 191/890 = 21.46%. NOVA 4 to NOVA 3 errors fall from 640 to 457. The observed advantage of structured over raw is consistent with I6.3b, though raw is necessary when structured input is unavailable. The 93.01% result is not a model improvement over Member 2's 90.11% natural test: the cohorts differ and weights are unchanged.
+
+NOVA 2 remains weak: structured predicts 130 cases, of which 25 are reference-correct, leaving 105 false positives (7 actual NOVA 1, 74 actual NOVA 3, 24 actual NOVA 4); 9 actual NOVA 2 cases are missed. Raw predicts 125, of which 24 are reference-correct. Balanced training versus rare NOVA 2 in the natural cohort is a plausible contributor, not established causation. With only 34 positives, recall is uncertain. Model confidence scores are not calibrated correctness probabilities. Do not tune thresholds or weights using this test cohort. Preserve unused groups and create separate development and untouched evaluation subsets if I7 investigates calibration, prior adjustment or fine-tuning.
+
+### 12.4 Evidence and limitations
+
+- `data/integration/evaluation_i6_3c/natural_predictions.csv` (1.1M), SHA-256 `16393599a553b95c0e602e7e23459cf241021e03263cd28370d656a447eeb2e9`.
+- `data/integration/evaluation_i6_3c/i6_3c_natural_metrics.json` (4.8K).
+- Natural sample SHA-256 `92936831b02322f4a91d216108eb632be36c507585b52e9d241bb639b30b4f40`.
+- Balanced metrics report hash recorded by natural run: `f0d6cde87ea927603603f8b57e4b3511c3ba9dfe4f8be3b02ba161b4a795765c`.
+- Source: supplied execution output; underlying files and weights were not independently rerun by report author. OFF reference labels are not independent ground truth; exact screening does not eliminate near duplicates; deduplicated screened sample is not retail market prevalence. Latencies are local predictor calls, not API times. Cleaned input was not repeated. No training or weight tuning occurred.
+
+## 13. I6.4 — OFF–USDA source consistency (completed)
+
+### 13.1 Objective and method
+
+Evaluate whether ingredient text agreement categories created in BDA are associated with agreement in predicted NOVA group. Use raw OFF and raw USDA descriptions for the same matched GTIN, the unchanged DistilBERT predictor and seed 42. Deliberately reuse the I6.3c natural cohort for a descriptive follow-up; this is not independent accuracy validation. Screen previous DL identifiers/text, reserved balanced/India OFF texts, and duplicate selected-pair identifiers/text across both source variants. Select 667 `same_basic`, 667 `same_after_extra_cleanup` and 666 `still_different` pairs, with no cross-stratum backfill. No comparison-cleaned text was fed to the model.
+
+```bash
+HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_4_sources
+```
+
+### 13.2 Selection and execution
+
+| Category | Available before selected-pair deduplication | Target | Selected | Shortfall |
+|---|---:|---:|---:|---:|
+| same_basic | 4,968 | 667 | 667 | 0 |
+| same_after_extra_cleanup | 2,537 | 667 | 667 | 0 |
+| still_different | 2,485 | 666 | 666 | 0 |
+| Total | 9,990 | 2,000 | 2,000 | 0 |
+
+First-failure screening exclusions: not pair eligible 6, balanced/India exact overlap 2, outside paired categories 2. Four visited rows were rejected for repeated selected-pair text/code during selection; that count is not an exhaustive count of duplicates in the pool. All 4,000 measured calls completed in 54.351092542 seconds on `mps:0`, using PyTorch 2.15.0 and Transformers 5.24.0. Model file hashes match Section 11.6; no training performed.
+
+### 13.3 Agreement outcomes
+
+| Category | Pairs | Agree | Disagree | Agreement | OFF-only accuracy against OFF label | OFF mean confidence | USDA mean confidence |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| same_basic | 667 | 667 | 0 | 100.00% | 88.91% | 95.07% | 95.16% |
+| same_after_extra_cleanup | 667 | 648 | 19 | 97.15% | 90.10% | 96.29% | 96.62% |
+| still_different | 666 | 597 | 69 | 89.64% | 91.44% | 96.01% | 96.83% |
+| Overall selected pairs | 2,000 | 1,912 | 88 | 95.60% | 90.15% | 95.79% | 96.20% |
+
+All 653 pairs with exact normalized raw-text matches (all in same_basic) agreed. The 69 disagreements in still_different account for 78.41% of the 88 disagreements. Agreement declines across the three categories in this selected sample, supporting the descriptive hypothesis. No causal claim or independent USDA accuracy estimate is made. OFF-only accuracy is a secondary descriptive measure on reused products, not another independent test.
+
+### 13.4 Prediction transition matrices
+
+Rows are OFF predictions; columns are USDA predictions, both ordered NOVA 1–4. Diagonal cells are agreement, not verified correctness.
+
+| Category | OFF predicted | USDA 1 | USDA 2 | USDA 3 | USDA 4 |
+|---|---:|---:|---:|---:|---:|
+| Overall | 1 | 72 | 3 | 2 | 3 |
+| Overall | 2 | 2 | 14 | 4 | 0 |
+| Overall | 3 | 1 | 2 | 394 | 48 |
+| Overall | 4 | 1 | 0 | 22 | 1432 |
+| same_basic | 1 | 37 | 0 | 0 | 0 |
+| same_basic | 2 | 0 | 10 | 0 | 0 |
+| same_basic | 3 | 0 | 0 | 199 | 0 |
+| same_basic | 4 | 0 | 0 | 0 | 421 |
+| same_after_extra_cleanup | 1 | 18 | 1 | 0 | 0 |
+| same_after_extra_cleanup | 2 | 0 | 3 | 4 | 0 |
+| same_after_extra_cleanup | 3 | 0 | 1 | 100 | 10 |
+| same_after_extra_cleanup | 4 | 0 | 0 | 3 | 527 |
+| still_different | 1 | 17 | 2 | 2 | 3 |
+| still_different | 2 | 2 | 1 | 0 | 0 |
+| still_different | 3 | 1 | 1 | 95 | 38 |
+| still_different | 4 | 1 | 0 | 19 | 484 |
+
+| Category | Recorded OFF NOVA counts (1,2,3,4) | OFF prediction counts | USDA prediction counts |
+|---|---|---|---|
+| Overall | 64, 4, 337, 1595 | 80, 20, 445, 1455 | 76, 19, 422, 1483 |
+| same_basic | 37, 4, 156, 470 | 37, 10, 199, 421 | 37, 10, 199, 421 |
+| same_after_extra_cleanup | 12, 0, 79, 576 | 19, 7, 111, 530 | 18, 5, 107, 537 |
+| still_different | 15, 0, 102, 549 | 24, 3, 135, 504 | 21, 4, 116, 525 |
+
+Seventy disagreements involve NOVA 3 and 4 (48 OFF 3 → USDA 4; 22 OFF 4 → USDA 3). The sample is dominated by NOVA 4, and has only four recorded NOVA 2 references, all in same_basic. Do not generalize overall agreement to each class.
+
+### 13.5 Implications and limitations
+
+Retain OFF and USDA ingredient descriptions separately with provenance and the existing BDA source-discrepancy flag. Preserve raw text for inference, structured OFF text when available, and comparison-cleaned text for matching. A matching GTIN does not establish identical formulation or time period. A disagreement is not evidence that one particular source is wrong; matching predictions can both be incorrect. USDA lacks independent NOVA reference labels. Text matching categories are not measures of semantic equivalence. English language not independently verified, near duplicates may remain, and confidence is uncalibrated. Categories are deliberately sampled near-equally, so 95.60% is not a population prevalence estimate. I6.4 reuses I6.3c products and should not be counted as independent accuracy evidence.
+
+### 13.6 Evidence and reproducibility
+
+Output folder `data/integration/evaluation_i6_4/`: `source_pairs.csv` (3.5M), `source_predictions.csv` (179K), `i6_4_source_consistency.json` (7.0K). Reported hashes:
+
+| Artifact | SHA-256 |
+|---|---|
+| Frozen natural sample | `92936831b02322f4a91d216108eb632be36c507585b52e9d241bb639b30b4f40` |
+| Natural metrics report | `f592646d63dd4631fbe0ae41c62268443d930e9fc629dd93e41109630152d56c` |
+| Selected pairs | `85e8cea1be48c0a782364ca2f8a99e18f49490a4c82d73a5bf3f7f8e22418fca` |
+| Predictions | `110f97150f4a50c7999d4d810d9537b5779b8f296e5debf3c0baff76e6f23f5d` |
+
+Results and hashes transcribed from the supplied terminal output. The underlying CSVs and checkpoint have not been independently rerun or hashed by the report author.
+
+## 14. I6.5 — India-tagged evaluation (completed)
+
+### 14.1 Objective and method
+
+Evaluate the entire frozen `india_evaluation.csv` cohort using original OFF ingredient text (`off_raw`) and training-style structured text (`off_dl_structured`) with the unchanged DistilBERT predictor. Raw and structured formats were selected following I6.3b. Compare both formats on identical products, rather than treating the two sets of calls as independent samples. The script reported 5,311 unique codes, 5,311 unique groups, 10,480 unique OFF text keys, zero exact overlap with previous DL samples and zero exact overlap with other evaluation samples. These are script-reported exact-match checks, not proof of absence of near duplicates.
+
+```bash
+HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_5_india
+```
+
+| Recorded NOVA | Support |
+|---|---:|
+| 1 | 378 |
+| 2 | 53 |
+| 3 | 931 |
+| 4 | 3,949 |
+| Total | 5,311 |
+
+10,622 measured predictions completed in 143.29079441697104 seconds on `mps:0`, PyTorch 2.15.0 and Transformers 5.24.0. The four checkpoint-file hashes match I6.3b (Section 11.6). No training or weight tuning occurred.
+
+### 14.2 Overall metrics
+
+| Metric | Raw OFF | Structured OFF |
+|---|---:|---:|
+| Accuracy | 79.871964% | 80.060252% |
+| Macro F1 | 0.6258021 | 0.6254859 |
+| Balanced accuracy | 83.472562% | 82.709901% |
+| Correct | 4,242 | 4,252 |
+| Incorrect | 1,069 | 1,059 |
+| Mean confidence | 91.020921% | 92.627027% |
+| Mean call latency | 13.483449 ms | 13.479103 ms |
+
+Always predicting NOVA 4 gives 74.355112% accuracy and 0.21322894 macro F1. Both model formats outperform this baseline. Structured yields ten additional correct classifications (+0.188288 percentage points) but raw yields slightly better macro F1 and balanced accuracy. This does not establish a clear overall format winner for India-tagged products. Structured accuracy is about 12.95 percentage points below the natural curated cohort (93.01%); cohort composition, source quality and selection differ, so geography alone cannot explain the gap.
+
+### 14.3 Class-wise results
+
+Precision, recall and F1 are fractions; support and predicted count are counts.
+
+| Format | NOVA | Precision | Recall | F1 | Support | Predicted count |
+|---|---:|---:|---:|---:|---:|---:|
+| Raw | 1 | 0.673423 | 0.791005 | 0.727494 | 378 | 444 |
+| Raw | 2 | 0.134565 | 0.962264 | 0.236111 | 53 | 379 |
+| Raw | 3 | 0.558442 | 0.785177 | 0.652679 | 931 | 1309 |
+| Raw | 4 | 0.994338 | 0.800456 | 0.886925 | 3949 | 3179 |
+| Structured | 1 | 0.675862 | 0.777778 | 0.723247 | 378 | 435 |
+| Structured | 2 | 0.137741 | 0.943396 | 0.240385 | 53 | 363 |
+| Structured | 3 | 0.554033 | 0.781955 | 0.648552 | 931 | 1314 |
+| Structured | 4 | 0.994061 | 0.805267 | 0.889759 | 3949 | 3199 |
+
+Confusion matrices: rows = recorded OFF NOVA; columns = predicted NOVA.
+
+| Format | Actual | Pred 1 | Pred 2 | Pred 3 | Pred 4 |
+|---|---:|---:|---:|---:|---:|
+| Raw | 1 | 299 | 48 | 27 | 4 |
+| Raw | 2 | 1 | 51 | 1 | 0 |
+| Raw | 3 | 85 | 101 | 731 | 14 |
+| Raw | 4 | 59 | 179 | 550 | 3161 |
+| Structured | 1 | 294 | 45 | 34 | 5 |
+| Structured | 2 | 0 | 50 | 3 | 0 |
+| Structured | 3 | 90 | 99 | 728 | 14 |
+| Structured | 4 | 51 | 169 | 549 | 3180 |
+
+Structured NOVA 2: 50 of 363 predicted cases agree with the recorded label (13.77% precision); 313 false positives (45 NOVA 1, 99 NOVA 3, 169 NOVA 4) and three false negatives. Raw: 51 of 379 predicted cases are reference-correct (13.46% precision), with 328 false positives. Only 53 recorded positives are available. The recurring high-recall/low-precision pattern motivates error analysis and prior/calibration experiments on new development data. High NOVA 4 precision does not imply high recall: 769 of 3,949 recorded NOVA 4 products are missed by structured input, including 549 predicted NOVA 3 and 169 predicted NOVA 2.
+
+### 14.4 Paired comparisons
+
+| Both correct | Raw only correct | Structured only correct | Both wrong | Prediction agreement | Structured minus raw accuracy |
+|---:|---:|---:|---:|---:|---:|
+| 3975 | 267 | 277 | 792 | 88.853323% | +0.188288 pp |
+
+The small net difference hides substantial per-product changes. Structured remains the provisional OFF default because of the balanced and natural curated results, with raw as fallback; the India result cautions against claiming universal superiority. Do not choose a new India-specific rule using this already-inspected cohort and then claim unbiased validation on the same cohort.
+
+### 14.5 Evidence and limitations
+
+- Output directory: `data/integration/evaluation_i6_5/`.
+- `india_predictions.csv` (602K as displayed by macOS); `i6_5_india_metrics.json` (5.4K).
+- Sample SHA-256: `c1602b19575634e152fbc2322bc32c29a85c32473ad134fc0e4514cb79bb2c45`.
+- Predictions SHA-256: `90888090edc0999821859f894ea993aae46bcdab427eb9c0d9441e2e06c3d07e`.
+- Natural report SHA-256: `f592646d63dd4631fbe0ae41c62268443d930e9fc629dd93e41109630152d56c`.
+- Source report SHA-256: `41daebe178fc0b67e96511674f181c096bedb40408df34c717218d88be1c66ec`.
+
+All numerical findings and hashes are from the supplied terminal output; the underlying CSVs and checkpoint were not independently rerun by the report author. India tagging does not establish manufacture in India or representativeness of Indian retail. English metadata does not establish English text, and OFF labels are not independently verified. Exact screening does not rule out near-duplicate formulations. Confidence is uncalibrated; latency is not end-to-end API latency. Cohorts have different selection mechanisms and must not be averaged into a single project accuracy. No threshold or weight tuning was performed.
+
+## 15. I6.6 — OCR-to-DL pilot (protocol and results)
+
+Inventory the existing OCR outputs, matching image references and human transcriptions before defining the paired evaluation. The BDA report documents two manually transcribed whole-image references (not ingredient-only gold standard) and a separate eight-image balanced OCR pilot with two segmentation modes, but the local raw evidence has not yet been inspected for I6.6. Do not treat whole-package text or OFF database descriptions as verified ingredient-only image transcriptions. Where feasible, prepare ingredient-only references from the same photographed label and compare the unchanged model's raw-input predictions with OCR text from the corresponding image. Report per-image word error rate and prediction changes, with the reference-text prediction treated as a comparison, not independent NOVA truth. Document prior-experiment overlaps and any image/label ambiguities. A tiny pilot cannot establish OCR or NOVA generalization accuracy; Tesseract findings do not directly validate Android ML Kit. No new OCR evaluation results yet.
+
+Revision 0.6: 25 November 2026 — completed I6.5, preserved earlier findings and documented I6.6 preparation.
+
+### 15.1 Inventory review (completed; inference pending)
+
+The supplied local terminal listing confirms six original ingredient-image files, two existing manual transcription files (`8902979052405.txt`, `8903553002809.txt`), 12 enhanced OCR records, and 16 balanced OCR records from eight images. The balanced OCR JSONL includes barcode, recorded NOVA, PSM, manual ingredient/readability flags, original and prepared image paths, OCR text, status and processing time. The earlier `run_balanced_ocr.py` resizes images to at most 3,000 pixels on the longest side and runs English Tesseract PSM 6 and 11 on the same prepared full image. The first supplied OCR record includes nutrition information (protein, sugars, cholesterol, sodium), demonstrating that these outputs are not guaranteed to be ingredient-only. The image pixels and contents of the two existing reference files have not yet been reviewed for I6.6.
+
+| Recorded NOVA | Balanced image barcodes |
+|---|---|
+| 1 | 8904083301394, 89080955 |
+| 2 | 8901088000468, 9556023331597 |
+| 3 | 8906112665354, 0760851638226 |
+| 4 | 8901063367258, 8901414006850 |
+
+### 15.2 Planned controlled ingredient-region pilot
+
+Inspect all eight original photos before inference. Include only images with an identifiable, sufficiently readable English ingredient section. Record exclusions and reasons; do not fill missing words using the OFF database or guess illegible text. Preserve original images, then crop the ingredient section once per eligible photo and create a human transcription of that same region, preserving ingredient order and separators as visible. Freeze references before reviewing OCR results or model predictions. Run Tesseract PSM 6 and 11 on the identical crop, using English recognition and recording version/settings and hashes. Retain empty/error OCR attempts as failures and report the denominator; do not feed empty strings into the predictor. Use the unchanged checkpoint verified in I6.3b. Calculate per-image and pooled word error rate using the earlier BDA word normalization, plus prediction agreement and confidence changes against the human-transcription prediction. Report recorded OFF label agreement only as descriptive context, not independent truth. Check barcode/text overlap with previous DL/evaluation samples and disclose overlaps; this is a small robustness pilot rather than independent generalization testing. Target at most eight images and 24 model calls (one human text and two OCR outputs per image). Full-package OCR may be evaluated separately as a workflow stress test; do not conflate extra packaging text with recognition errors. Tesseract results cannot validate Android ML Kit directly.
+
+Revision 0.6.1: inventory and protocol recorded; no new OCR predictions, WER measurements, or model training performed.
+
+
+### 15.3 Image inspection and reference preparation (I6.6.4)
+
+The supplied eight original photographs in `I6_6_Ingredient_Images.zip` were visually inspected, including magnified views. Six were retained for the pilot. Two were excluded before any new OCR or model predictions: `8901414006850` (ingredient text clipped at left edge) and `9556023331597` (fold obscures an additive code; complete transcription uncertain). Retention is 6/8; recorded NOVA supports are 2, 1, 2, 1. This is no longer balanced, and these recorded classes are not independently validated. The selected readable images cannot represent all label photographs.
+
+| Barcode | Recorded NOVA | Preparation |
+|---|---:|---|
+| 8904083301394 | 1 | Milk and milk solids, isolated ingredient line |
+| 89080955 | 1 | Coffee beans and chicory, polygon crop |
+| 8901088000468 | 2 | Coconut oil, isolated ingredient line |
+| 0760851638226 | 3 | Lobia/millet pancake ingredient list, heading excluded because it contains product description |
+| 8906112665354 | 3 | Seeds, jaggery, nuts, oat flour and honey, ingredient-only image |
+| 8901063367258 | 4 | Biscuit ingredient paragraph, excluding explanatory and allergen statements |
+
+AI-assisted visual transcriptions were drafted from original image pixels, not copied from OFF ingredient descriptions or derived from OCR outputs. User visual verification is required before running the experiment. These are provisional references, not independently human-verified yet. Images were EXIF-oriented, polygon-masked to white outside the selected region, cropped to bounding box and padded by 20 pixels; no enhancement or resizing of retained pixels. Crop and reference SHA-256 hashes, original image hashes, polygon coordinates and exclusions are recorded in `data/integration/evaluation_i6_6_inputs/manifest.json`. Ingredient headings are retained when visible within the chosen region and are present in the corresponding reference; this is a controlled raw-input robustness test, not a standardized ingredient parser.
+
+The prepared `I6_6_OCR_Evaluation_Pack.zip` contains six PNG crops, six provisional reference TXT files, the manifest and `src/integration/evaluate_i6_6_ocr.py`. The script checks original image and prepared input hashes, earlier sample hashes, checkpoint equality with I6.5, and reports exact identifier/text matches against previous datasets and evaluation cohorts. Overlaps are disclosed rather than excluded because this is a paired robustness pilot. After visual reference review, run `HF_HUB_OFFLINE=1 python -m src.integration.evaluate_i6_6_ocr --references-reviewed`. Tesseract PSM 6 and 11 use the same crop with English recognition; up to 18 inference calls (six reference plus twelve OCR predictions). Word error rate ignores case/punctuation using the earlier tokenization; empty successful OCR outputs count as 100% WER, engine failures are reported separately and excluded from pooled WER. Prediction agreement is reported both among nonempty predictions and across all attempts, using the reference-text prediction as baseline, not independent NOVA truth. The output directory is `data/integration/evaluation_i6_6/`.
+
+Script syntax and synthetic edit-distance, overlap and summary tests passed. Actual OCR and model inference have not yet been executed. No new WER or classification findings are available. The script requires the existing Tesseract executable and English language data; no new Python packages are intended. The pilot does not test automatic region selection or Android ML Kit.
+
+Revision 0.6.2: image inspection, exclusions, provisional references and controlled experiment package prepared; user review and inference pending.
+
+
+### 15.4 Completed OCR robustness experiment (I6.6.5)
+
+The supplied terminal output confirms the `--references-reviewed` run completed on MPS using Tesseract 5.5.4 (`eng`), torch 2.15.0 and transformers 5.24.0. The review flag records the user's confirmation, not a separately observed independent transcription review. The same manually isolated, unenhanced ingredient crops were used for both PSM modes. Six reference predictions and eight nonempty OCR predictions were made (14 calls); four empty outputs were not passed to the model. Reported evaluation wall time was 1.568439 seconds, not an API or mobile latency benchmark. Both modes had zero engine errors.
+
+| Metric | PSM 6 | PSM 11 |
+|---|---:|---:|
+| Attempts | 6 | 6 |
+| Nonempty outputs / predictions | 6 | 2 |
+| Empty outputs | 0 | 4 |
+| Reference words in successful engine runs | 95 | 95 |
+| Word edit errors | 61 | 68 |
+| Pooled WER | 64.210526% | 71.578947% |
+| Reference-prediction agreements | 3 | 2 |
+| Agreement among nonempty predictions | 50.00% | 100.00% |
+| Agreement across all attempts | 50.00% | 33.333333% |
+| Mean change in top-score confidence among predictions | -12.521667 pp | -10.79 pp |
+
+The 100% conditional PSM 11 agreement is based on only two outputs and does not include its four empty results. Word error rates include successful empty outputs as 100% WER and ignore case and punctuation. The pooled denominator weights longer texts more heavily; punctuation-only output can be nonempty while having zero word tokens.
+
+| Barcode | Recorded OFF | Reference prediction | PSM | OCR words | WER (%) | OCR prediction | Reference score (%) | OCR score (%) |
+|---|---:|---:|---:|---:|---:|---|---:|---:|
+| 0760851638226 | 3 | 3 | 6 | 1 | 100.00 | 1 | 93.13 | 90.8 |
+| 0760851638226 | 3 | 3 | 11 | 0 | 100.00 | None | 93.13 | — |
+| 8901063367258 | 4 | 3 | 6 | 0 | 100.00 | 1 | 89.36 | 80.0 |
+| 8901063367258 | 4 | 3 | 11 | 0 | 100.00 | None | 89.36 | — |
+| 8901088000468 | 2 | 2 | 6 | 3 | 0.00 | 2 | 89.87 | 84.63 |
+| 8901088000468 | 2 | 2 | 11 | 0 | 100.00 | None | 89.87 | — |
+| 8904083301394 | 1 | 1 | 6 | 4 | 0.00 | 1 | 81.67 | 59.91 |
+| 8904083301394 | 1 | 1 | 11 | 0 | 100.00 | None | 81.67 | — |
+| 8906112665354 | 3 | 3 | 6 | 26 | 0.00 | 3 | 61.32 | 61.32 |
+| 8906112665354 | 3 | 3 | 11 | 26 | 0.00 | 3 | 61.32 | 61.32 |
+| 89080955 | 1 | 1 | 6 | 1 | 80.00 | 2 | 99.12 | 62.68 |
+| 89080955 | 1 | 1 | 11 | 2 | 80.00 | 1 | 99.12 | 77.54 |
+
+
+**Failure examples.** `0760851638226`: PSM 6 produced `aoa` (100% WER), changing NOVA 3 (93.13% score) to NOVA 1 (90.80%). `8901063367258`: PSM 6 produced `=` (100% WER, zero word tokens), changing NOVA 3 (89.36%) to NOVA 1 (80.00%). For this second image the recorded OFF label was NOVA 4; reference-text predictions are not gold labels. `89080955`: PSM 6 returned just `Ingredients`, while PSM 11 returned `ingredients\n\nAM`; both had 80% WER, but the latter happened to agree with the reference prediction. Thus agreement does not establish usable OCR or correct classification. Milk text had zero word errors in PSM 6 but a 21.76-point drop in confidence, plausibly related to punctuation differences; WER ignores punctuation. The exact cause was not isolated. The seeds/jaggery product had 0% WER and identical model scores for both modes.
+
+**Overlap:** `0760851638226`, `8901063367258`, and `8906112665354` matched the reserved India evaluation by barcode. No exact reference/OCR text match was reported. These overlaps were disclosed rather than excluded as specified in the robustness protocol.
+
+**Implications:** require review and editing of OCR text, reject empty/punctuation-only/heading-only text before inference, prompt for retake or manual entry when extraction is suspicious. Do not impose a blanket minimum number of words because real products can have a single ingredient. Meaningless alphabetic fragments require further checks or human review; confidence cannot be the sole quality gate. The proposed guards are not yet implemented or validated. Keep raw ingredient text rather than comparison-cleaned text.
+
+**Limitations:** six selected readable images (recorded NOVA supports 2/1/2/1), two exclusions before inference; manual cropping does not test automatic ingredient-region detection; AI-assisted references reviewed according to run flag; near duplicates not screened; uncalibrated confidence; no independent NOVA truth; Tesseract results are not Android ML Kit validation. This is not a representative OCR benchmark.
+
+**Evidence and reproducibility:** `data/integration/evaluation_i6_6/i6_6_ocr_metrics.json` and `ocr_predictions.jsonl` (17K and 11K in supplied listing). All reported results from local terminal output; full datasets not rerun by report author.
+
+- `manifest_sha256`: `e2cdbba385c1a00309992d95a79dcb68379ce9af26b903844cdda6e060ff7c98`.
+- `india_report_sha256`: `b6b85fccdaa48b35850f04bbd1556d664e88276291d19fd310248860deda6235`.
+- `predictions_sha256`: `3667855e5a61202631acf028518e8f0a310fc818a879c7a56afe6d26e042130f`.
+- Checkpoint and tokenizer hashes match the previous I6.3b–I6.5 reports.
+
+
+## 16. I6 conclusion and I7 plan
+
+I6 is complete. The selected unchanged model is a workable baseline, not a fully validated production classifier. Structured OFF inputs performed best in both curated experiments; original text is the practical fallback; India results show negligible accuracy gain and slightly worse macro F1 for structured text. Comparison-cleaned text remains a source-matching representation, not an inference input. OFF–USDA prediction agreement is not USDA accuracy. NOVA 2 precision remains low on naturally imbalanced data, and OCR can generate confident predictions from unusable input. These findings motivate targeted improvement rather than automatic full retraining.
+
+| Cohort | Structured accuracy | Structured macro F1 | NOVA 2 precision |
+|---|---:|---:|---:|
+| Balanced curated | 89.60% | 0.8966 | 90.04% |
+| Natural curated | 93.01% | 0.7409 | 19.23% |
+| India-tagged | 80.06% | 0.6255 | 13.77% |
+
+### I7.1 — Diagnostic error analysis (planned)
+
+Read existing frozen natural and India samples and prediction CSVs, verify hashes and join identities, and recompute confusion matrices. Describe score bins and high-confidence errors for raw and structured formats, NOVA 2 false-positive origins, and NOVA 4 to 3/2 errors. Export a fixed-seed (42), error-enriched structured-input review sample, up to ten rows per diagnostic category and cohort, with fields for manual observations and possible label ambiguity. This is exploratory analysis of already-seen evaluation data, not new inference, threshold fitting, or independent validation. Do not claim observed labels are erroneous without verification.
+
+### I7.2 onward — Planned, not executed
+
+Reconstruct complete connected exact-text/code groups from the audited pools and preserve separation from all used groups, including OCR and source-pair texts/codes. Recheck the earlier balanced `training_sample.csv` against its three partitions if not already verified. Create new development and untouched final test sets from eligible unused groups before tuning; existing 188,327 unused curated representatives are only a starting count. If new India-tagged evaluation data are unavailable, state that limitation rather than tune and retest on I6.5. Compare unchanged baseline with simple prior adjustment and/or calibration on development data, with class-wise precision/recall, macro F1, and coverage if abstention is considered. Freeze the decision before testing. Prior adjustment assumes a form of label shift and must be empirically tested, not inferred solely from balanced training. Use fine-tuning only if justified and keep the original checkpoint. No model retraining or decision threshold has been applied yet.
+
+Revision 0.7: 25 November 2026 — I6.6 results and I6 conclusion recorded; I7.1 diagnostic protocol added. Previous revisions' pending statements are historical.
