@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingVertical="8dp"
+    android:paddingHorizontal="12dp">
+
+    <TextView
+        android:id="@+id/tvValueA"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        tools:text="2.5 g" />
+
+    <TextView
+        android:id="@+id/tvMetricName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1.5"
+        android:gravity="center"
+        android:textColor="?attr/colorOnSurface"
+        android:textSize="13sp"
+        tools:text="Sugars (100g)" />
+
+    <TextView
+        android:id="@+id/tvValueB"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        tools:text="14.0 g" />
+
+</LinearLayout>
