@@ -1,6 +1,6 @@
 # Food Facts — Backend Development and Big Data Architecture
 
-**Living technical report | Revision 0.12 | 26 November 2026 | Application lookup verified; Git checkpoint recommended**
+**Living technical report | Revision 0.15 | 26 November 2026 | Restricted catalogue access and all 11 HTTP lookup cases verified; API Git checkpoint pending**
 
 Repository: `Ayushbms05/food-facts-project`  
 Branch: `feature/bda-dl-integration`  
@@ -8,7 +8,7 @@ Companion research report: `docs/BDA_DL_EVALUATION_FINDINGS.md` (revision 1.0). 
 
 ## 1. Executive summary and scope
 
-The completed BDA–DL evaluation is documented separately. This report begins the engineering phase: make existing food data and the model accessible to Android, and collect permitted scan events for continuous Big Data analytics. The earlier PyArrow/SQLite catalogue builder was prepared and tested synthetically but, per the user's explicit statement, I8.3.1 was not implemented. That approach is superseded. Do not execute `build_i8_3_catalogue.py` as part of the revised plan. Prior experimental results are unaffected. PostgreSQL 17.12 is healthy, and the three-row Spark JDBC round trip is verified by supplied terminal output. The earlier persistence exercise is user-confirmed without separate before/after logs. The 10,000-row real-data Spark pilot passed: 9,993 active valid records, seven invalid check digits, 8,352 curated links (8,349 consistent checked fields, three missing English comparisons), and all staged counts verified in 113.538 seconds. Full-snapshot ETL has completed: 4,693,098 active valid OFF rows, 200,534 rejected rows, 47 ambiguous keys and 368,054 linked curated records, in 210.598 seconds. Full outputs were preserved as staged Parquet and subsequently loaded to PostgreSQL. The subsequent JDBC pilot verified all 9,993 OFF and 8,352 curated rows and their values in PostgreSQL; the first full-load attempt stopped safely before database writes because 17 OFF field values contained literal NUL characters. The revised loader corrected 21 literal NUL characters in 17 fields across 10 records, with no affected curated links. All three full tables were verified by row-digest multiset and SQL reconciliation, and published as `catalogue` in 400.997 seconds. The original staged Parquet remains unchanged. I8.4a completed: all four fixed cases changed from sequential scans to index scans, with median execution times of 1,226.155–1,268.360 ms before and 0.022–0.026 ms after. All projected lookup fingerprints were unchanged. The nonunique B-tree index is retained. I8.4b completed: all 11 lookup cases passed, including aliases, ambiguous and absent codes and curated-link handling. Six warm client lookup medians ranged from 0.229562 to 0.3716665 ms, with 180 measured calls on one connection. A Git checkpoint is recommended before I8.5; commit and push are not yet verified. API, Kafka, live streaming and dashboard implementation remain pending.
+The completed BDA–DL evaluation is documented separately. This report begins the engineering phase: make existing food data and the model accessible to Android, and collect permitted scan events for continuous Big Data analytics. The earlier PyArrow/SQLite catalogue builder was prepared and tested synthetically but, per the user's explicit statement, I8.3.1 was not implemented. That approach is superseded. Do not execute `build_i8_3_catalogue.py` as part of the revised plan. Prior experimental results are unaffected. PostgreSQL 17.12 is healthy, and the three-row Spark JDBC round trip is verified by supplied terminal output. The earlier persistence exercise is user-confirmed without separate before/after logs. The 10,000-row real-data Spark pilot passed: 9,993 active valid records, seven invalid check digits, 8,352 curated links (8,349 consistent checked fields, three missing English comparisons), and all staged counts verified in 113.538 seconds. Full-snapshot ETL has completed: 4,693,098 active valid OFF rows, 200,534 rejected rows, 47 ambiguous keys and 368,054 linked curated records, in 210.598 seconds. Full outputs were preserved as staged Parquet and subsequently loaded to PostgreSQL. The subsequent JDBC pilot verified all 9,993 OFF and 8,352 curated rows and their values in PostgreSQL; the first full-load attempt stopped safely before database writes because 17 OFF field values contained literal NUL characters. The revised loader corrected 21 literal NUL characters in 17 fields across 10 records, with no affected curated links. All three full tables were verified by row-digest multiset and SQL reconciliation, and published as `catalogue` in 400.997 seconds. The original staged Parquet remains unchanged. I8.4a completed: all four fixed cases changed from sequential scans to index scans, with median execution times of 1,226.155–1,268.360 ms before and 0.022–0.026 ms after. All projected lookup fingerprints were unchanged. The nonunique B-tree index is retained. I8.4b completed: all 11 lookup cases passed, including aliases, ambiguous and absent codes and curated-link handling. Six warm client lookup medians ranged from 0.229562 to 0.3716665 ms, with 180 measured calls on one connection. The user reports a successful push of the integration branch checkpoint. Remote commit ID is not independently verified. I8.5b server startup, health, documentation, all 11 expected product HTTP status codes and graceful shutdown are observed in the supplied Uvicorn log. I8.5a restricted-role verification and I8.5b automated HTTP client report are now supplied and passed: SELECT permitted and named write privileges denied on all three catalogue tables; health ready and 11/11 HTTP lookup cases verified. Observed FastAPI 0.165.0, Uvicorn 0.54.0, Psycopg 3.3.9, Psycopg Pool 3.3.3. API milestone Git commit/push and applying dependency pins are pending. DL integration, Kafka, streaming and dashboard remain pending.
 
 The user requested simple-English explanations before commands, a separate living backend report, and BDA implementation before considering additional DL demonstration features. We will explain what each tool does, why the project needs it, how it connects to the other tools, and what the verification output means. No new DL training or explainability feature is currently planned.
 
@@ -104,7 +104,9 @@ The primary source remains broad OFF coverage (4,893,632 original rows), enriche
 | I8.3.4b | Full-scale Spark catalogue and quality audit | Completed |
 | I8.3.5 | Load PostgreSQL and validate/publish | Completed; all three full tables verified; OFF barcode index created in I8.4a |
 | I8.4 | ETL/load/index/lookup performance experiments | I8.4a and I8.4b completed; Git checkpoint recommended before API |
-| I8.5–I8.8 | FastAPI, DL connection, input safeguards, combined testing | Planned |
+| I8.5 | Restricted database role, pooled FastAPI lookup and HTTP tests | Verified complete; Git checkpoint pending |
+| I8.6 | Existing DistilBERT connection and prediction endpoint | Planned; checkpoint preflight next |
+| I8.7–I8.8 | Input safeguards and combined testing | Planned |
 | I9 | Integrate Member 3's Kotlin/XML app without overwriting branch | Planned |
 | I10.1 | Set up Kafka, topic and connectivity | Planned |
 | I10.2 | Publish permitted mobile scan events | Planned |
@@ -527,6 +529,64 @@ These sizes include table storage, indexes and auxiliary storage, not the entire
 
 The user asked whether it is time to push to GitHub. Yes: I8.4b is a coherent verified checkpoint. Commit the integration Python scripts, current documentation, safe Compose configuration, ignore rules and dependency pins (observed Psycopg 3.3.9). Preserve both failed and corrected loading scripts for reproducibility and use the revised loader for this snapshot. Keep credentials, local virtual environments, generated datasets, model weights, database files and raw experiment outputs outside Git. Reports record observed results; retain local raw evidence separately. Inspect branch and remote, check ignores and tracked secret paths, stage selected files rather than `git add .`, inspect the staged diff, then commit and push `feature/bda-dl-integration` to `origin` without force. Do not merge into main or the mobile branch. The current local Git state and remote divergence are not visible here; no commit or push is claimed. Next engineering step I8.5: restricted PostgreSQL account and local FastAPI product lookup, then DL integration.
 
+### 7.23 Git checkpoint outcome and I8.5a/b — restricted account and HTTP API (prepared)
+
+The user confirmed a successful push after reviewing 15 staged files. An unrelated untracked MAD lab project was identified and advised to be moved outside the repository. The exact remote commit and final status are not supplied. Keep the integration branch separate from main and mobile. Commit after each verified milestone.
+
+I8.5a: `api_db_access.py` provisions a new `food_api` login with SELECT on exactly three catalogue tables, USAGE on catalogue schema, CONNECT on foodfacts, no administrator attributes, default read-only transactions and ten-second statement timeout. A generated 48-hex password is kept in ignored `infra/.env.api` (0600); do not upload it. The admin credentials are used only for provisioning. A libpq SCRAM verifier is used for CREATE ROLE, not a plaintext password SQL literal. Verification checks SELECT and absence of named table write privileges, no schema CREATE, role attributes and two actual lookup cases. It refuses to overwrite an existing secret or role. This is a local restricted catalogue login, not comprehensive database hardening; public privileges on unrelated objects may still exist. No catalogue data mutation is intended.
+
+I8.5b: `food_api.py` reuses `catalogue_lookup.lookup()` and its established statuses. Uvicorn serves on 127.0.0.1:8000, one process. Lifespan opens/closes a Psycopg pool (1–4 connections, 5-second acquisition timeout); synchronous routes borrow connections. `/health` checks a nonempty catalogue table. `/products/{barcode}` returns 200 found, 400 invalid, 404 locally absent, 409 ambiguous; database failures 503 and consistency error 500. Status bodies retain the existing lookup contract, including nullable recorded NOVA and conservative curated-link display. No automatic DL inference, Kafka events, auth or Android networking yet. The API returns the current lookup projection; field minimization and stable mobile DTOs will be reviewed before LAN exposure. Bind loopback only.
+
+`test_i8_5_http.py` makes actual HTTP calls to the server, checks health and the same 11 lookup fixtures, confirms alias equivalence, NOVA NULL preservation and source comparison withholding. Saves a fresh JSON report to `data/backend/i8_5b_http_report.json` with observed package versions; refuses overwrite. No controlled HTTP timing yet. Install fastapi, uvicorn and psycopg-pool in `.venv-integration` without upgrading existing Psycopg; pin versions after verified installation. Python syntax compilation passed; live provisioning, pool, HTTP and role tests remain pending. Official references: https://www.postgresql.org/docs/17/sql-grant.html ; https://www.psycopg.org/psycopg3/docs/api/pq.html ; https://www.psycopg.org/psycopg3/docs/advanced/pool.html ; https://fastapi.tiangolo.com/advanced/events/ .
+
+### 7.24 I8.5b — live API server observations (partial verification)
+
+Supplied Uvicorn server output shows successful startup on loopback `127.0.0.1:8000`, successful application lifespan startup and shutdown, repeated HTTP 200 health checks, and HTTP 200 responses for `/docs` and `/openapi.json`. The browser's optional `/favicon.ico` returned 404; this is unrelated to product lookup functionality. The server was stopped by Ctrl+C and completed graceful shutdown.
+
+| Product barcode | Case | Observed HTTP status |
+|---|---|---:|
+| 00000105000011 | Known with NOVA | 200 |
+| 00000105000059 | Known without NOVA | 200 |
+| 00059527070430 | Ambiguous | 409 |
+| 99999999990017 | Locally absent | 404 |
+| 000105000011 | 12-digit alias | 200 |
+| 0000105000011 | 13-digit alias | 200 |
+| 00000105000012 | Invalid checksum | 400 |
+| abc123 | Invalid format | 400 |
+| 00000000 | All zero | 400 |
+| 00000000005487 | Checked link | 200 |
+| 00000000035071 | Missing English comparison | 200 |
+
+All 11 expected status codes match. Access logs do not prove response-body assertions, role privileges or successful creation of the client report. The existing server code uses the `food_api` connection configuration and pool startup succeeded; separate least-privilege checks still need their output. Use `.venv-integration/bin/python -m src.integration.api_db_access --verify-only` rather than recreate the role. Inspect `data/backend/i8_5b_http_report.json` if already generated. If absent, restart Uvicorn on loopback and run `test_i8_5_http` from a separate terminal, which validates the JSON response contract and writes the report without overwriting an existing one. The server log alone does not establish whether the client assertions after the last request passed. Do not claim the automated suite fully passed until its report or success output is supplied. Package versions other than previously observed Psycopg 3.3.9 are not yet confirmed. No HTTP latency, concurrency, database outage, DL inference or Android networking test claimed. Next: finish these checks, record dependency pins, commit the verified API milestone, then I8.6 model integration.
+
+### 7.25 I8.5a/b — final permission and HTTP client verification (completed)
+
+User-supplied terminal output from `.venv-integration/bin/python -m src.integration.api_db_access --verify-only` confirms SELECT permitted and named write/other privileges denied on `catalogue.off_products`, `catalogue.curated_links`, and `catalogue.barcode_conflicts`; the script's role attribute, read-only transaction, schema CREATE denial, known and ambiguous lookup assertions completed successfully. This is restricted catalogue access, not a comprehensive production security audit.
+
+The user supplied `data/backend/i8_5b_http_report.json`. Health returned `{"status":"ok","database":"ready"}`. All 11 cases passed, with the case/status/row counts below. Inspection of the test script confirms that report generation follows assertions on the product selection contract, recorded NOVA presence and NULL preservation, equality of the 12-/13-digit alias responses, checked source comparison visibility and missing English comparison withholding.
+
+| Case | HTTP | Lookup status | Matching rows |
+|---|---:|---|---:|
+| known | 200 | found | 1 |
+| missing_nova | 200 | found | 1 |
+| ambiguous | 409 | ambiguous | 2 |
+| absent | 404 | not_found | 0 |
+| alias_12 | 200 | found | 1 |
+| alias_13 | 200 | found | 1 |
+| bad_checksum | 400 | invalid_barcode | 0 |
+| bad_format | 400 | invalid_barcode | 0 |
+| zero | 400 | invalid_barcode | 0 |
+| checked_link | 200 | found | 1 |
+| missing_english | 200 | found | 1 |
+
+Observed dependencies for the direct backend requirements file: `fastapi==0.165.0`, `uvicorn==0.54.0`, `psycopg[binary]==3.3.9`, `psycopg-pool==3.3.3`. These are direct dependency pins, not a complete transitive lockfile. Apply to `requirements-backend.txt`, check `pip check`, verify both credential paths are ignored and untracked, stage `.gitignore`, the requirements file, `api_db_access.py`, `food_api.py`, `test_i8_5_http.py`, and this report. Review staged diff, commit, push only `feature/bda-dl-integration`. Previous batch checkpoint was user-confirmed; new API checkpoint is pending. No model weights, passwords or generated database files should be committed.
+
+Limitations: local serial HTTP smoke test, no measured HTTP latency or concurrency, no outage/recovery test, no authentication or production deployment, no DL or Android integration. I8.5 is closed at the specified local smoke-test scope.
+
+### 7.26 I8.6a — existing model preflight (planned)
+
+Before modifying the verified API, check the four checkpoint file SHA-256 hashes against `docs/NOVA_INFERENCE_POLICY.json`, load the existing model using `src.deep_learning.inference.predict.load_model()` in `.venv-integration`, and call `predict_nova()` on simple example ingredient lists. Verify output class range and print device, load time and model output. This is an environment/checkpoint compatibility smoke test, not a new model accuracy experiment. Reuse the original inference mode (alpha 0, temperature 1); research-only corrections are not exposed to general requests. No retraining. Keep recorded NOVA separate from predicted NOVA, load model once in server lifespan and serialize initial inference for controlled local testing. Planned POST /predict accepts ingredient text; OCR review and additional input safeguards are required before mobile exposure. Do not modify the existing HTTP lookup contract until regression tests are prepared. Actual model preflight, API implementation and timings are pending.
+
 ## 8. Planned API and event safety
 
 Proposed endpoints: `GET /health`, `GET /products/{barcode}`, `POST /predict`, later `POST /scan-events`. The API contract must distinguish invalid, absent, ambiguous and found barcodes. Missing local data does not establish that the product does not exist elsewhere. OCR/manual input must be reviewed, reject unusable symbols/fragments without excluding legitimate single ingredients, and retain separate recorded and AI classifications. Scores are not guarantees. The current model is not newly validated on India/OCR inputs by the holdout improvement.
@@ -551,5 +611,10 @@ Use `docs/BACKEND_DEVELOPMENT_REPORT.md` as the canonical current copy. For each
 | 0.10 | 2026-11-26 | Audited NUL correction and full JDBC load verified; prepared I8.4a controlled lookup comparison. |
 | 0.11 | 2026-11-26 | Recorded actual before/after indexing results; prepared read-only joined application lookup and client benchmark. |
 | 0.12 | 2026-11-26 | Recorded successful 11-case application lookup, 180 measured calls, table sizes and recommended Git checkpoint before I8.5. |
+| 0.13 | 2026-11-26 | User-confirmed Git push; prepared restricted database role, pooled FastAPI and live HTTP smoke test. |
 
-**Evidence boundary:** Full catalogue loading, correction and reconciliation are supported by supplied terminal output, not independently rerun here. Persistence exercise is user-confirmed without separate logs. Index benchmark and direct Python lookup are supported by supplied terminal output; Git commit/push, live API and Kafka remain pending.
+| 0.14 | 2026-11-26 | Recorded live API startup, expected HTTP status codes for 11 product fixtures, documentation and shutdown; role and client-body verification pending. |
+
+| 0.15 | 2026-11-26 | Completed restricted-role and HTTP client verification; observed dependency pins and planned API Git checkpoint and model preflight. |
+
+**Evidence boundary:** Full catalogue loading, correction and reconciliation are supported by supplied terminal output, not independently rerun here. Persistence exercise is user-confirmed without separate logs. Index benchmark and direct Python lookup are supported by supplied terminal output; Git push is user-confirmed (no remote commit hash supplied); live API server checks, restricted-role checks and HTTP client assertions are supported by the supplied logs and report. API checkpoint push and I8.6 preflight remain pending; Kafka remains pending.

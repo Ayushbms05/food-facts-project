@@ -30,3 +30,4 @@ cat >> .gitignore <<'EOF'
 __pycache__/
 *.pyc
 EOF
+/infra/.env.api
