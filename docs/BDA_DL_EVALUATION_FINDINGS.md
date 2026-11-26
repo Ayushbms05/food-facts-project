@@ -1,6 +1,6 @@
 # Food Facts — BDA + DL Integration and Evaluation Findings
 
-**Living technical report | Revision 0.12 | 26 November 2026 | I7.4 holdout completed; I7.5–I7.6 model strategy defined**
+**Research closeout | Revision 1.0 | 26 November 2026 | I1–I7 complete; backend documented separately**
 
 Repository: `Ayushbms05/food-facts-project`  
 Working branch: `feature/bda-dl-integration`  
@@ -8,7 +8,9 @@ Scope: integration of Member 1's BDA pipeline and Member 2's trained NOVA classi
 
 ## Executive summary
 
-**Current status (I7.4–I7.6):** The frozen combined adjustment passed the four predeclared holdout gates. On 5,080 structured curated products, accuracy rose from 92.1654% to 92.6181% (+23 correct), and NOVA 2 false positives declined from 97 to 67 with two fewer true positives. The original checkpoint remains unchanged. Recommend no immediate fine-tuning; retain the original model for general app inference, with the combined adjustment restricted to an explicitly identified screened-curated structured-text research mode. India and OCR improvement remains unvalidated. Final policy installation and backend integration are pending.
+**Report boundary:** This report covers the completed BDA–DL integration and evaluation work through I7. Backend development (I8 onward) is now maintained in `docs/BACKEND_DEVELOPMENT_REPORT.md`. The earlier SQLite/PyArrow catalogue proposal was superseded before execution; the approved direction is Spark ETL, PostgreSQL serving, FastAPI, Kafka, Spark Structured Streaming and Streamlit. This is an architecture decision, not a claim of completed implementation.
+
+**Completed research status (I7.4–I7.6):** The frozen combined adjustment passed the four predeclared holdout gates. On 5,080 structured curated products, accuracy rose from 92.1654% to 92.6181% (+23 correct), and NOVA 2 false positives declined from 97 to 67 with two fewer true positives. The original checkpoint remains unchanged. Recommend no immediate fine-tuning; retain the original model for general app inference, with the combined adjustment restricted to an explicitly identified screened-curated structured-text research mode. India and OCR improvement remains unvalidated. The policy file is now present locally; backend implementation remains pending.
 
 The BDA and DL source branches have been merged into a separate integration branch and pushed to GitHub. The existing DistilBERT checkpoint loads and predicts locally on Apple MPS. A reproduced 10-product smoke test returned 10/10 correct predictions; this is a functional test, not a new generalization accuracy measurement.
 
@@ -28,7 +30,7 @@ I6.6 completed a six-image ingredient-region OCR robustness pilot. PSM 6 yielded
 
 I7.1 audited 30,622 saved predictions across 15,311 products. Structured-text errors with confidence at least 90% numbered 421/699 (natural curated) and 485/1,059 (India). At a descriptive 95% NOVA 2 score cut, precision was still only 54.29% and 32.33%, respectively. These findings motivate fresh development/holdout sets for calibration and prior-adjustment trials, not a threshold fitted to the inspected cohorts. No new inference or tuning was performed.
 
-I7.2b resolved the supplied DL artifact discrepancy at the normalized-record level: all 10,000 code/text/label records agree after normalization, and none of the 17,311 earlier classification evaluation rows overlaps the full training sample by normalized code or any checked OFF text. The exact cause of formatting differences and actual checkpoint lineage remain unverified. I7.3 subsequently evaluated 11 output-adjustment strengths on 5,080 development products. The selected configuration (alpha=0.3, T=1.326715596542784) yielded 93.01% unweighted accuracy versus 92.72% baseline, but NOVA 2 recall fell from 72.50% to 63.75%. Standardized macro F1 increased from 0.7289 to 0.7361; standardized ECE fell from 0.03330 to 0.01080. Temperature-only T=1.2877402988474436 retained all class decisions and improved calibration. These are development results, not independent improvement evidence. Holdout remains untouched.
+I7.2b resolved the supplied DL artifact discrepancy at the normalized-record level: all 10,000 code/text/label records agree after normalization, and none of the 17,311 earlier classification evaluation rows overlaps the full training sample by normalized code or any checked OFF text. The exact cause of formatting differences and actual checkpoint lineage remain unverified. I7.3 subsequently evaluated 11 output-adjustment strengths on 5,080 development products. The selected configuration (alpha=0.3, T=1.326715596542784) yielded 93.01% unweighted accuracy versus 92.72% baseline, but NOVA 2 recall fell from 72.50% to 63.75%. Standardized macro F1 increased from 0.7289 to 0.7361; standardized ECE fell from 0.03330 to 0.01080. Temperature-only T=1.2877402988474436 retained all class decisions and improved calibration. These were development results, not independent improvement evidence. The separate holdout was subsequently evaluated in I7.4.
 
 ## 1. Research objectives and reference baseline
 
@@ -276,7 +278,7 @@ Candidate CSV columns: `cohort`, `code`, `normalized_code`, `nova_group`, `produ
 - Benchmark latency is not backend latency; model Softmax scores are not guarantees of correctness.
 - Report values are transcribed from supplied terminal runs and Member 2's documentation. The full datasets and model were not independently rerun for this report.
 
-## 8. Next experiments — proposed, not completed
+## 8. Experiment status and transition to backend
 
 | Step | Planned experiment | Status |
 |---|---|---|
@@ -286,14 +288,14 @@ Candidate CSV columns: `cohort`, `code`, `normalized_code`, `nova_group`, `produ
 | I6.4 | OFF–USDA paired prediction consistency, stratified by source agreement | Completed (Section 13) |
 | I6.5 | India-tagged evaluation | Completed (Section 14) |
 | I6.6 | OCR-to-DL paired comparison where reference transcription exists | Completed: six-image robustness pilot (Section 15) |
-| I7 | Decide whether model improvement is justified | Pending |
-| I8–I11 | Backend, Android integration, real scan-event analytics, final tests/documentation | Pending |
+| I7 | Diagnose errors, prepare fresh samples, test and validate output adjustments, decide model policy | Complete (Sections 17–26) |
+| I8–I11 | Backend, Android integration, real scan-event analytics, final tests/documentation | Transferred to `docs/BACKEND_DEVELOPMENT_REPORT.md` |
 
-The frozen sampling design (Section 10) yielded 500 per class for the balanced curated sample, 10,000 natural curated representatives, and 5,311 reserved India representatives. The OFF–USDA experiment reached its target of 2,000 pairs (Section 13). Balanced and natural samples have distinct purposes; do not infer population precision from a balanced sample. Reserve untouched groups if later tuning is needed. Report accuracy, macro F1, class-wise precision/recall/F1/support, confusion matrices and paired differences. No weight-improvement decision has been established; the comparison-cleaned input is provisionally excluded from subsequent inference tests because of I6.3b.
+The frozen sampling design (Section 10) yielded 500 per class for the balanced curated sample, 10,000 natural curated representatives, and 5,311 reserved India representatives. The OFF–USDA experiment reached its target of 2,000 pairs (Section 13). Balanced and natural samples have distinct purposes; do not infer population precision from a balanced sample. Reserve untouched groups if later tuning is needed. Report accuracy, macro F1, class-wise precision/recall/F1/support, confusion matrices and paired differences. I7 established that no additional weight training is planned for the prototype; the combined output adjustment passed the curated holdout gates only. Comparison-cleaned input remains excluded from classifier input because of I6.3b.
 
 ## 9. Reproducibility and report maintenance
 
-Keep this file in `docs/BDA_DL_EVALUATION_FINDINGS.md` on `feature/bda-dl-integration`. Commit the report and the experiment scripts, not the generated datasets or checkpoint weights. Generated evidence under `data/` stays local; retain it or archive it separately for reproducibility. For each new completed experiment append date, objective, script and exact command, input/model identifiers (including hashes where available), sample size and seed, results, output paths, interpretation and limitations. Preserve prior findings; mark corrections explicitly rather than silently replacing results. Use Git history to retain versions. The report is updated when new experiment outputs are supplied, not automatically by a background process.
+Keep this file in `docs/BDA_DL_EVALUATION_FINDINGS.md` on `feature/bda-dl-integration`. Commit the report and the experiment scripts, not the generated datasets or checkpoint weights. Generated evidence under `data/` stays local; retain it or archive it separately for reproducibility. This research report is closed at I7; retain any future research corrections explicitly. Record new backend, streaming and application experiments in the separate backend report with date, objective, commands, versions, inputs, results, output paths and limitations. Preserve prior findings; mark corrections explicitly rather than silently replacing results. Use Git history to retain versions. The report is updated when new experiment outputs are supplied, not automatically by a background process.
 
 ### Run commands for completed audits
 
@@ -327,6 +329,9 @@ These commands recreate the generated audit outputs; archive earlier runs if com
 | 0.9 | 2026-11-25 | I7.2 sampling and qualitative review |
 | 0.10 | 2026-11-25 | I7.2b provenance and I7.3 protocol |
 | 0.11 | 2026-11-26 | I7.3 results and predeclared I7.4 holdout decision gate |
+| 0.12 | 2026-11-26 | I7.4 holdout results and I7.5–I7.6 inference policy |
+| 0.13–0.14 | 2026-11-26 | Historical I8 inventory, source inspection and unexecuted SQLite design; backend material moved to separate report |
+| 1.0 | 2026-11-26 | Research closeout through I7; revised backend direction and report separation, no new evaluation results |
 
 **Historical conclusion at I6.5:** Keep the existing trained DistilBERT checkpoint. Balanced and natural evaluations are complete. Structured text leads raw text on both, and comparison-cleaned text substantially underperforms on the balanced cohort. NOVA 2 false positives remain a concern. Cross-source and India evaluation are complete; India performance is lower and the format difference is metric-dependent. OCR evaluation was pending at that revision. Current results appear in the executive summary and later sections.
 
@@ -1214,6 +1219,10 @@ Full local evidence: `data/integration/evaluation_i7_4/i7_4_holdout_metrics.json
 
 For product lookup keep the recorded OFF classification separate from the predicted NOVA and identify ingredient provenance. Preserve raw and structured text for inference; comparison-cleaned text remains for BDA matching only. Reject blank or symbol-only inputs and flag suspicious fragments; require review of OCR text, but allow legitimate single ingredients. Preserve discrepancies between OFF and USDA, and avoid presenting source agreement as accuracy.
 
-**Status:** I7.5 decision documented; I7.6 policy proposed/frozen as a documentation artifact, local installation and backend implementation pending. No new training or inference required for these decisions. Next I8 begins with read-only repo/backend inventory, then API contract, indexed local product store and FastAPI implementation. Mobile branch remains separate. Final app safeguards and API performance need actual testing.
+**Status:** I7.5–I7.6 decisions documented; the policy file was subsequently listed in the local `docs/` directory. Backend implementation and testing remain pending. No new training or inference is required for the prototype at this point. I8 onward is documented in `docs/BACKEND_DEVELOPMENT_REPORT.md`, including the revised Spark/PostgreSQL/Kafka architecture. Member 3’s mobile branch remains separate.
 
 Revision 0.12 — I7.4 completed, fine-tuning decision and scope-limited inference policy documented; previous revision statements are historical.
+
+## 27. Research closeout and document split
+
+The numerical findings, model parameters, experimental hashes and limitations from I1–I7 are retained. Revision 0.14 included an unexecuted SQLite catalogue design. The user explicitly confirmed that I8.3.1 had not been implemented and chose the richer Big Data stack; this old design is not an active instruction. I8.1 and I8.2 observations are carried forward in the new backend report. Retain older report revisions in Git history if needed; use revision 1.0 as the current research reference. Further DL demonstrability (e.g., carefully evaluated explanations or model comparison interface) is a deferred topic, not a completed feature or a requirement for the current backend work.
