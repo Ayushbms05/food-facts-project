@@ -1,6 +1,10 @@
-"""I8.5b: local read-only HTTP API. No model inference or analytics events yet."""
+"""I8.6b: local read-only product API plus original-mode NOVA prediction."""
 from contextlib import asynccontextmanager
 import logging
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from fastapi.exceptions import RequestValidationError
+from .nova_service import NovaService, InputError, MAX_CHARS, validate_text
 
 import psycopg
 from psycopg_pool import ConnectionPool, PoolTimeout
@@ -21,12 +25,20 @@ async def lifespan(app):
     try:
         pool.open(wait=True, timeout=15)
         app.state.pool = pool
+        app.state.nova = None
+        try:
+            app.state.nova = NovaService()
+            log.info('Original NOVA model ready on %s', app.state.nova.device)
+        except Exception as exc:
+            # Keep verified barcode lookup available if the model cannot load.
+            log.error('NOVA model unavailable: %s', type(exc).__name__)
         yield
     finally:
+        app.state.nova = None
         pool.close()
 
 
-app = FastAPI(title='Food Facts API', version='0.1.0', lifespan=lifespan)
+app = FastAPI(title='Food Facts API', version='0.2.0', lifespan=lifespan)
 
 
 def unavailable():
@@ -61,3 +73,32 @@ def product(barcode: str, request: Request):
             log.error('Catalogue consistency check failed')
             return JSONResponse(status_code=500, content={'status':'catalogue_inconsistent'})
     return JSONResponse(status_code=HTTP_CODES[result['status']], content=jsonable_encoder(result))
+
+
+class PredictionInput(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    ingredient_text: str = Field(max_length=MAX_CHARS)
+    source: Literal['manual', 'ocr'] = 'manual'
+    reviewed: StrictBool = False
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request, exc):
+    # Avoid returning raw ingredient text in validation errors.
+    return JSONResponse(status_code=422, content={'status': 'invalid_request'})
+
+
+@app.post('/predict', responses={400: {'description': 'Invalid ingredient text'},
+                                503: {'description': 'Model unavailable'}})
+def predict(payload: PredictionInput, request: Request):
+    try:
+        text = validate_text(payload.ingredient_text, payload.source, payload.reviewed)
+        service = request.app.state.nova
+        if service is None:
+            return JSONResponse(status_code=503, content={'status': 'model_unavailable'})
+        return service.predict(text, payload.source, payload.reviewed)
+    except InputError as exc:
+        return JSONResponse(status_code=400, content={'status': 'invalid_ingredients', 'message': str(exc)})
+    except Exception as exc:
+        log.error('NOVA prediction failed: %s', type(exc).__name__)
+        return JSONResponse(status_code=503, content={'status': 'model_unavailable'})
