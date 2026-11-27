@@ -1,10 +1,11 @@
-"""I8.6b: local read-only product API plus original-mode NOVA prediction."""
+"""I8.7b: enforce ingredient quality triage before original-mode prediction."""
 from contextlib import asynccontextmanager
 import logging
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from fastapi.exceptions import RequestValidationError
 from .nova_service import NovaService, InputError, MAX_CHARS, validate_text
+from .ingredient_quality import assess_ingredients, RULE_VERSION
 
 import psycopg
 from psycopg_pool import ConnectionPool, PoolTimeout
@@ -38,7 +39,7 @@ async def lifespan(app):
         pool.close()
 
 
-app = FastAPI(title='Food Facts API', version='0.2.0', lifespan=lifespan)
+app = FastAPI(title='Food Facts API', version='0.3.0', lifespan=lifespan)
 
 
 def unavailable():
@@ -88,10 +89,23 @@ async def validation_error(request, exc):
     return JSONResponse(status_code=422, content={'status': 'invalid_request'})
 
 
-@app.post('/predict', responses={400: {'description': 'Invalid ingredient text'},
+@app.post('/predict', responses={400: {'description': 'Invalid ingredient text or text needing correction'},
                                 503: {'description': 'Model unavailable'}})
 def predict(payload: PredictionInput, request: Request):
     try:
+        quality = assess_ingredients(payload.ingredient_text, payload.source, payload.reviewed)
+        if quality['decision'] != 'accept':
+            messages = {
+                'heading_without_ingredients': 'Enter the ingredients, not just the heading.',
+                'unrecognized_short_fragment': 'Check the short ingredient text and correct or re-enter it.',
+                'possible_non_ingredient_label_text': 'Enter only the ingredient list; remove unrelated label information.',
+            }
+            return JSONResponse(status_code=400, content={
+                'status': 'needs_review' if quality['decision'] == 'review' else 'invalid_ingredients',
+                'reason': quality['reason'],
+                'message': quality.get('message') or messages[quality['reason']],
+                'quality_rule_version': RULE_VERSION,
+            })
         text = validate_text(payload.ingredient_text, payload.source, payload.reviewed)
         service = request.app.state.nova
         if service is None:
